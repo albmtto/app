@@ -10,8 +10,18 @@
 
 <a class="sr-only" href="#contenido">Saltar al contenido principal</a>
 
+<!-- ================= PANTALLA DE CARGA INICIAL =================
+     Se muestra mientras Firebase Auth resuelve si ya hay una sesión
+     guardada. Evita el "flash" de ver el login un instante antes de
+     entrar directo a la app cuando la sesión sigue activa. Se oculta
+     desde auth.js (initEscuchaSesion) apenas Firebase responde. -->
+<div id="bootSplash" class="boot-splash">
+  <div class="boot-splash-spinner" aria-hidden="true"></div>
+  <p>Cargando…</p>
+</div>
+
 <!-- ================= PANTALLA DE INICIO DE SESIÓN ================= -->
-<div id="loginScreen" class="login-pantalla">
+<div id="loginScreen" class="login-pantalla" hidden>
   <form id="formLogin" class="login-tarjeta" novalidate>
     <div class="logo" style="border:none;padding:0 0 var(--s4);justify-content:center">
       <span class="icono" aria-hidden="true">
@@ -49,6 +59,10 @@
     </span>
     <div><strong>Mantenimiento</strong><small>Gestión de Mantenimiento</small></div>
   </div>
+  <div class="sidebar-usuario" id="sidebarUsuario">
+    <span class="avatar" id="usuarioAvatarMovil" aria-hidden="true">--</span>
+    <div class="nombre"><span id="usuarioNombreMovil">—</span><small id="usuarioRolMovil"></small></div>
+  </div>
   <nav aria-label="Módulos del sistema">
     <a href="#dashboard" data-mod="dashboard" aria-current="page">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
@@ -69,7 +83,6 @@
     <a href="#ejecutar" data-mod="ejecutar">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
       Ejecutar Orden
-      <span class="badge">2</span>
     </a>
     <a href="#reporte" data-mod="reporte">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
@@ -202,24 +215,31 @@
       <!-- Pestaña: Lista -->
       <div class="tabpanel" id="panel-lista" role="tabpanel" aria-labelledby="tab-lista">
         <div class="panel">
-          <div class="cabecera">
+          <div class="cabecera" style="flex-wrap:wrap;gap:var(--s3)">
             <h2 style="border:none;background:none;padding:0">Listado de equipos y áreas</h2>
-            <button class="btn" type="button">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-              Agregar equipo
-            </button>
+            <div style="display:flex;gap:var(--s3);flex-wrap:wrap">
+              <input type="file" id="equiposImportarInput" accept=".xlsx,.xls,.csv" class="sr-only">
+              <button class="btn secundario" type="button" id="btnImportarEquiposExcel">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Importar Excel
+              </button>
+              <button class="btn secundario" type="button" id="btnExportarEquiposExcel">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Exportar Excel
+              </button>
+              <button class="btn" type="button" id="btnAgregarEquipo">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                Agregar equipo
+              </button>
+            </div>
           </div>
+          <p id="equiposImportarEstado" class="doc-estado" hidden></p>
           <div class="tabla-scroll">
             <table>
-              <caption class="sr-only">Listado de equipos registrados con código, nombre, ubicación y tipo</caption>
-              <thead><tr><th scope="col">Código</th><th scope="col">Nombre</th><th scope="col">Ubicación</th><th scope="col">Tipo</th></tr></thead>
-              <tbody>
-                <tr><td>EQ-001</td><td>Compresor A-12</td><td>Planta 1</td><td>Equipo</td></tr>
-                <tr><td>EQ-002</td><td>Bomba B-04</td><td>Planta 1</td><td>Equipo</td></tr>
-                <tr><td>EQ-003</td><td>Motor M-33</td><td>Planta 2</td><td>Equipo</td></tr>
-                <tr><td>EQ-004</td><td>Caldera C-01</td><td>Sala de máquinas</td><td>Equipo</td></tr>
-                <tr><td>AR-001</td><td>Bodega de insumos</td><td>Sótano</td><td>Área</td></tr>
-                <tr><td>AR-002</td><td>Oficina administrativa</td><td>Piso 3</td><td>Área</td></tr>
+              <caption class="sr-only">Listado de equipos registrados con código, nombre, ubicación, tipo y acciones</caption>
+              <thead><tr><th scope="col">Código</th><th scope="col">Nombre</th><th scope="col">Ubicación</th><th scope="col">Tipo</th><th scope="col">Acciones</th></tr></thead>
+              <tbody id="tablaEquiposBody">
+                <tr><td colspan="5" class="lista-vacia">Cargando equipos…</td></tr>
               </tbody>
             </table>
           </div>
@@ -254,21 +274,17 @@
           <div class="documento">
             <div class="doc-titulo">
               <span class="ic" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
-              <div><h3>Cronograma de mantenimiento</h3><span class="doc-estado">Creado · 20/01/2026 · v2</span></div>
+              <div><h3>Cronograma de mantenimiento</h3><span class="doc-estado" id="cronogramaEstado">Generado automáticamente</span></div>
             </div>
-            <p class="doc-estado">Calendización de los mantenimientos preventivos por mes. Alimenta el módulo Calendario.</p>
+            <p class="doc-estado">Cronograma de los mantenimientos preventivos y metrologia de los equipos y areas.</p>
             <div class="doc-acciones">
-              <button class="btn secundario btn-chico" type="button">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg>
-                Ver PDF
+              <button class="btn secundario btn-chico" type="button" id="btnVerCronograma">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                Ver cronograma
               </button>
-              <button class="btn btn-chico" type="button">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
-                Editar
-              </button>
-              <button class="btn peligro btn-chico" type="button">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
-                Eliminar
+              <button class="btn btn-chico" type="button" id="btnGenerarPdfCronograma">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15h6M9 11h6M9 19h3"/></svg>
+                Generar PDF
               </button>
             </div>
           </div>
@@ -313,12 +329,7 @@
             <div class="campo" style="max-width:420px;margin-bottom:var(--s4)">
               <label for="hv-equipo">Selecciona el equipo a consultar</label>
               <select id="hv-equipo" name="hv-equipo">
-                <option>EQ-001 · Compresor A-12</option>
-                <option>EQ-002 · Bomba B-04</option>
-                <option>EQ-003 · Motor M-33</option>
-                <option>EQ-004 · Caldera C-01</option>
-                <option>AR-001 · Bodega de insumos</option>
-                <option>AR-002 · Oficina administrativa</option>
+                <option value="">Cargando equipos…</option>
               </select>
               <span class="ayuda">La hoja de vida muestra los documentos del equipo seleccionado</span>
             </div>
@@ -461,55 +472,8 @@
             <div class="panel" style="margin-top:var(--s5);margin-bottom:0">
               <div class="cabecera"><h2 style="border:none;background:none;padding:0">Historial de reportes</h2></div>
               <div class="cuerpo">
-                <ul class="reportes-lista">
-                  <li>
-                    <button class="reporte-item" type="button">
-                      <svg class="flecha" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
-                      <h4>Preventivo — Compresor A-12</h4>
-                      <span class="fecha">10 de agosto de 2026</span>
-                      <div class="meta">
-                        <span>Realizado por: <b>Juan Torres</b></span>
-                        <span>Estado: <b>Funcionando</b></span>
-                        <span>Duración: <b>3 horas</b></span>
-                      </div>
-                    </button>
-                  </li>
-                  <li>
-                    <button class="reporte-item correctivo" type="button">
-                      <svg class="flecha" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
-                      <h4>Correctivo — Compresor A-12</h4>
-                      <span class="fecha">22 de junio de 2026</span>
-                      <div class="meta">
-                        <span>Realizado por: <b>María López</b></span>
-                        <span>Estado: <b>Funcionando</b></span>
-                        <span>Duración: <b>5 horas</b></span>
-                      </div>
-                    </button>
-                  </li>
-                  <li>
-                    <button class="reporte-item" type="button">
-                      <svg class="flecha" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
-                      <h4>Preventivo — Compresor A-12</h4>
-                      <span class="fecha">5 de mayo de 2026</span>
-                      <div class="meta">
-                        <span>Realizado por: <b>Juan Torres</b></span>
-                        <span>Estado: <b>Funcionando</b></span>
-                        <span>Duración: <b>2 horas</b></span>
-                      </div>
-                    </button>
-                  </li>
-                  <li>
-                    <button class="reporte-item locativo" type="button">
-                      <svg class="flecha" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
-                      <h4>Locativo — Compresor A-12</h4>
-                      <span class="fecha">14 de marzo de 2026</span>
-                      <div class="meta">
-                        <span>Realizado por: <b>Juan Torres</b></span>
-                        <span>Estado: <b>Funcionando</b></span>
-                        <span>Duración: <b>1,5 horas</b></span>
-                      </div>
-                    </button>
-                  </li>
+                <ul class="reportes-lista" id="hvHistorialReportes">
+                  <li><p class="lista-vacia">Selecciona un equipo para ver su historial.</p></li>
                 </ul>
               </div>
             </div>
@@ -532,10 +496,6 @@
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
             </button>
           </div>
-          <button class="btn" type="button">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-            Programar mantenimiento
-          </button>
         </div>
         <div class="cal-leyenda" aria-hidden="true">
           <span><i class="cal-chip preventivo">Preventivo</i></span>
@@ -546,9 +506,6 @@
         </div>
         <div class="cal-anio" id="calGrid"></div>
       </div>
-      <p style="font-size:var(--fs-xs);color:var(--text-muted)">
-        Los mantenimientos preventivos mostrados provienen del cronograma generado en el módulo de Equipos → Gestión documental.
-      </p>
     </section>
 
     <!-- ================= GENERAR OT ================= -->
@@ -613,13 +570,12 @@
  <div class="ordenes-cards">
  <article class="orden-card">
  <div class="cab">
- <div><span class="cod">OT-0102</span><small>Compresor A-12</small></div>
+ <div><span class="cod">OT</span><small>Nombre del equipo</small></div>
  <span class="cal-chip preventivo">Preventivo</span>
  </div>
  <ul class="datos">
- <li><b>Programada</b><span>26/08/2026</span></li>
- <li><b>Técnico</b><span>Juan Torres</span></li>
- <li><b>Trabajo</b><span>Cambio de filtros y lubricación</span></li>
+ <li><b>Responsable</b></li>
+ <li><b>Actividades</b></li>
  </ul>
  <div class="acciones">
  <button class="btn" type="button">
@@ -630,13 +586,12 @@
  </article>
  <article class="orden-card">
  <div class="cab">
- <div><span class="cod">OT-0101</span><small>Bomba B-04</small></div>
+ <div><span class="cod">OT</span><small>Nombre del equipo</small></div>
  <span class="cal-chip correctivo">Correctivo</span>
  </div>
  <ul class="datos">
- <li><b>Programada</b><span>25/08/2026 (hoy)</span></li>
- <li><b>Técnico</b><span>María López</span></li>
- <li><b>Trabajo</b><span>Reparación de fuga en sellado</span></li>
+ <li><b>Responsable</b></li>
+ <li><b>Actividades</b></li>
  </ul>
  <div class="acciones">
  <button class="btn" type="button">
@@ -655,27 +610,27 @@
       <h2 id="h-reporte" class="sr-only">Generar reporte</h2>
       <div class="panel">
         <div class="cabecera"><h2 style="border:none;background:none;padding:0">Generar reporte de mantenimiento</h2></div>
-        <form class="cuerpo formulario" onsubmit="return false">
+        <form class="cuerpo formulario" id="formReporte">
           <fieldset style="grid-column:1/-1">
             <legend>Datos del reporte</legend>
             <div class="formulario" style="margin-top:var(--s4)">
               <div class="campo">
                 <label for="rep-realiza">Quien realiza <span class="req" aria-hidden="true">*</span></label>
-                <select id="rep-realiza" required><option>Juan Torres · Técnico</option><option>María López · Técnica</option></select>
+                <select id="rep-realiza" required><option value="">Cargando técnicos…</option></select>
               </div>
               <div class="campo">
                 <label for="rep-aprueba">Quien aprueba <span class="req" aria-hidden="true">*</span></label>
-                <select id="rep-aprueba" required><option>Carlos Ruiz · Jefe de mantenimiento</option><option>María López · Técnica</option></select>
+                <select id="rep-aprueba" required><option value="">Cargando técnicos…</option></select>
               </div>
               <div class="campo">
                 <label for="rep-equipo">Equipo <span class="req" aria-hidden="true">*</span></label>
                 <select id="rep-equipo" required>
-                  <option>Compresor A-12</option><option>Bomba B-04</option><option>Motor M-33</option><option>Caldera C-01</option><option>AR-001 · Bodega de insumos</option><option>AR-002 · Oficina administrativa</option>
+                  <option value="">Cargando equipos…</option>
                 </select>
               </div>
               <div class="campo">
                 <label for="rep-fecha">Fecha <span class="req" aria-hidden="true">*</span></label>
-                <input type="date" id="rep-fecha" value="2026-08-25" required>
+                <input type="date" id="rep-fecha"required>
               </div>
               <div class="campo">
                 <label for="rep-hini">Hora inicio <span class="req" aria-hidden="true">*</span></label>
@@ -691,21 +646,21 @@
           <fieldset class="ancho" style="grid-column:1/-1">
             <legend >Tipo de mantenimiento</legend>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:var(--s2) var(--s4)">
-              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-tipo"> Preventivo</label>
-              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-tipo"> Correctivo</label>
-              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-tipo"> Locativo</label>
-              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-tipo"> Instalación</label>
-              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-tipo"> Desinstalación</label>
-              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-tipo"> Dada de baja</label>
+              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-tipo" value="Preventivo" required> Preventivo</label>
+              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-tipo" value="Correctivo"> Correctivo</label>
+              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-tipo" value="Locativo"> Locativo</label>
+              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-tipo" value="Instalación"> Instalación</label>
+              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-tipo" value="Desinstalación"> Desinstalación</label>
+              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-tipo" value="Dada de baja"> Dada de baja</label>
             </div>
           </fieldset>
 
           <fieldset class="ancho" style="grid-column:1/-1">
             <legend >Estado actual del equipo</legend>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:var(--s2) var(--s4)">
-              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-estado"> Funcionando</label>
-              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-estado"> Con falla</label>
-              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-estado"> Fuera de servicio</label>
+              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-estado" value="Funcionando" required> Funcionando</label>
+              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-estado" value="Con falla"> Con falla</label>
+              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-estado" value="Fuera de servicio"> Fuera de servicio</label>
             </div>
           </fieldset>
 
@@ -738,7 +693,7 @@
           <div class="campo ancho">
             <label for="rep-evidencia">Evidencia fotográfica</label>
             <input type="file" id="rep-evidencia" accept="image/*" multiple>
-            <span class="ayuda">Puedes adjuntar varias fotos del trabajo realizado</span>
+            <span class="ayuda">Puedes adjuntar varias fotos; se comprimen automáticamente para ocupar menos espacio</span>
           </div>
           <div class="acciones">
             <button class="btn" type="submit">
@@ -934,12 +889,241 @@
   </form>
 </div>
 
+<!-- ================= MODAL: Cómo importar equipos desde Excel ================= -->
+<div id="modalImportarEquipos" class="modal" hidden>
+  <div class="modal-fondo" data-cerrar-modal></div>
+  <div class="modal-tarjeta modal-tarjeta--ancho">
+    <div class="modal-cabecera">
+      <h2>Importar equipos desde Excel</h2>
+      <button type="button" class="modal-cerrar" data-cerrar-modal aria-label="Cerrar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <p class="doc-estado">El archivo (.xlsx, .xls o .csv) debe tener estos encabezados en la primera fila. El orden de las columnas no importa, pero los nombres sí (se ignoran tildes y mayúsculas):</p>
+
+    <div class="tabla-scroll">
+      <table>
+        <thead>
+          <tr><th scope="col">Columna</th><th scope="col">Obligatoria</th><th scope="col">Valores permitidos</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Código</td><td>Sí</td><td>Texto único. Es el identificador del equipo/área (Ej. EQ-005).</td></tr>
+          <tr><td>Nombre</td><td>Sí</td><td>Texto libre.</td></tr>
+          <tr><td>Ubicación</td><td>Sí</td><td>Texto libre.</td></tr>
+          <tr><td>Tipo</td><td>Sí</td><td>Equipo · Área · Metrología</td></tr>
+          <tr><td>Frecuencia mantenimiento</td><td>Sí</td><td>Mensual · Trimestral · Semestral · Anual</td></tr>
+          <tr><td>Mes inicio mantenimiento</td><td>Solo si no es Mensual</td><td>Nombre del mes (Ej. Marzo) o número 1-12. Los demás meses se calculan automáticamente según la frecuencia.</td></tr>
+          <tr><td>Frecuencia certificación</td><td>Solo si Tipo = Metrología</td><td>Semestral · Anual</td></tr>
+          <tr><td>Mes inicio certificación</td><td>Solo si Tipo = Metrología</td><td>Nombre del mes o número 1-12. Semestral agrega automáticamente el mes +6; Anual usa solo ese mes.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="ayuda" style="margin-top:var(--s3)">Ejemplo de fila para un equipo de metrología: <br>
+      <code>EQ-010 · Termómetro digital · Laboratorio · Metrología · Semestral · Marzo · Semestral · Marzo</code>
+    </p>
+
+    <div class="modal-acciones">
+      <button type="button" class="btn secundario" id="btnDescargarPlantillaEquipos">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Descargar plantilla
+      </button>
+      <button type="button" class="btn" id="btnElegirArchivoEquipos">
+        Elegir archivo…
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: Agregar / Editar equipo ================= -->
+<div id="modalEquipo" class="modal" hidden>
+  <div class="modal-fondo" data-cerrar-modal></div>
+  <form id="formEquipo" class="modal-tarjeta" novalidate>
+    <div class="modal-cabecera">
+      <h2 id="modalEquipoTitulo">Agregar equipo</h2>
+      <button type="button" class="modal-cerrar" data-cerrar-modal aria-label="Cerrar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div id="modalEquipoError" class="login-error" role="alert" hidden></div>
+
+    <input type="hidden" id="equipoCodigoEdicion" value="">
+
+    <label class="login-campo">
+      <span>Código</span>
+      <input type="text" id="campoEquipoCodigo" placeholder="Ej. EQ-005" required>
+    </label>
+
+    <label class="login-campo">
+      <span>Nombre</span>
+      <input type="text" id="campoEquipoNombre" placeholder="Ej. Compresor A-13" required>
+    </label>
+
+    <label class="login-campo">
+      <span>Ubicación</span>
+      <input type="text" id="campoEquipoUbicacion" placeholder="Ej. Planta 1" required>
+    </label>
+
+    <label class="login-campo">
+      <span>Tipo</span>
+      <select id="campoEquipoTipo" required>
+        <option value="Equipo">Equipo</option>
+        <option value="Área">Área</option>
+        <option value="Metrología">Metrología</option>
+      </select>
+    </label>
+
+    <fieldset>
+      <legend>Programación de mantenimiento</legend>
+
+      <label class="login-campo">
+        <span>Frecuencia de mantenimiento</span>
+        <select id="campoEquipoFrecuencia" required>
+          <option value="Mensual">Mensual</option>
+          <option value="Trimestral">Trimestral</option>
+          <option value="Semestral">Semestral</option>
+          <option value="Anual">Anual</option>
+        </select>
+      </label>
+
+      <label class="login-campo" id="campoEquipoMesInicioWrap">
+        <span>Mes de inicio</span>
+        <select id="campoEquipoMesInicio" required></select>
+      </label>
+
+      <p class="ayuda">Meses de mantenimiento: <strong id="previewMesesMantenimiento">—</strong></p>
+    </fieldset>
+
+    <fieldset id="fieldsetCertificacion" hidden>
+      <legend>Certificación de metrología</legend>
+
+      <label class="login-campo">
+        <span>Frecuencia de certificación</span>
+        <select id="campoEquipoFrecuenciaCert" required>
+          <option value="Semestral">Semestral</option>
+          <option value="Anual">Anual</option>
+        </select>
+      </label>
+
+      <label class="login-campo">
+        <span>Mes de inicio de certificación</span>
+        <select id="campoEquipoMesInicioCert" required></select>
+        <span class="ayuda">Semestral: 2 meses separados por 6. Anual: 1 mes.</span>
+      </label>
+
+      <p class="ayuda">Meses de certificación: <strong id="previewMesesCertificacion">—</strong></p>
+    </fieldset>
+
+    <div class="modal-acciones">
+      <button type="button" class="btn secundario" data-cerrar-modal>Cancelar</button>
+      <button type="submit" class="btn" id="btnGuardarEquipo">Guardar</button>
+    </div>
+  </form>
+</div>
+
+<!-- ================= MODAL: Cronograma de mantenimiento ================= -->
+<div id="modalCronograma" class="modal" hidden>
+  <div class="modal-fondo" data-cerrar-modal></div>
+  <div class="modal-tarjeta modal-tarjeta--ancho">
+    <div class="modal-cabecera">
+      <h2>Cronograma de mantenimiento</h2>
+      <button type="button" class="modal-cerrar" data-cerrar-modal aria-label="Cerrar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div style="display:flex;gap:var(--s4);flex-wrap:wrap;align-items:center;margin-bottom:var(--s3)">
+      <span class="ayuda"><span class="cal-chip preventivo" style="padding:2px 8px">M</span> Mantenimiento Preventivo</span>
+      <span class="ayuda"><span class="cal-chip metrologia" style="padding:2px 8px">C</span> Certificación de metrología</span>
+    </div>
+
+    <div class="tabla-scroll">
+      <table>
+        <caption class="sr-only">Cronograma anual de mantenimiento y certificación por equipo</caption>
+        <thead>
+          <tr>
+            <th scope="col">Código</th>
+            <th scope="col">Nombre</th>
+            <th scope="col">Tipo</th>
+            <th scope="col">Frecuencia</th>
+            <th scope="col">Ene</th><th scope="col">Feb</th><th scope="col">Mar</th><th scope="col">Abr</th>
+            <th scope="col">May</th><th scope="col">Jun</th><th scope="col">Jul</th><th scope="col">Ago</th>
+            <th scope="col">Sep</th><th scope="col">Oct</th><th scope="col">Nov</th><th scope="col">Dic</th>
+          </tr>
+        </thead>
+        <tbody id="tablaCronogramaBody">
+          <tr><td colspan="16" class="lista-vacia">No hay equipos registrados todavía.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: Detalle de reporte (Hoja de vida) ================= -->
+<div id="modalDetalleReporte" class="modal" hidden>
+  <div class="modal-fondo" data-cerrar-modal></div>
+  <div class="modal-tarjeta modal-tarjeta--ancho">
+    <div class="modal-cabecera">
+      <h2 id="detalleReporteTitulo">Detalle del reporte</h2>
+      <button type="button" class="modal-cerrar" data-cerrar-modal aria-label="Cerrar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="detalle-reporte">
+      <div class="detalle-grid">
+        <div class="dato"><span>Equipo</span><span id="detEquipo">—</span></div>
+        <div class="dato"><span>Tipo de mantenimiento</span><span id="detTipo">—</span></div>
+        <div class="dato"><span>Fecha</span><span id="detFecha">—</span></div>
+        <div class="dato"><span>Duración</span><span id="detDuracion">—</span></div>
+        <div class="dato"><span>Realiza</span><span id="detRealiza">—</span></div>
+        <div class="dato"><span>Aprueba</span><span id="detAprueba">—</span></div>
+        <div class="dato"><span>Estado del equipo</span><span id="detEstado">—</span></div>
+        <div class="dato"><span>Tareas realizadas</span><span id="detTareas">—</span></div>
+      </div>
+
+      <div class="dato">
+        <span>Actividades</span>
+        <p class="detalle-texto" id="detActividades">—</p>
+      </div>
+      <div class="dato">
+        <span>Repuestos utilizados</span>
+        <p class="detalle-texto" id="detRepuestos">—</p>
+      </div>
+      <div class="dato">
+        <span>Observaciones</span>
+        <p class="detalle-texto" id="detObservaciones">—</p>
+      </div>
+
+      <div class="dato" id="detFotosContenedor" hidden>
+        <span>Evidencia fotográfica</span>
+        <div class="detalle-fotos" id="detFotos"></div>
+      </div>
+    </div>
+
+    <div class="modal-acciones">
+      <button type="button" class="btn secundario" data-cerrar-modal>Cerrar</button>
+      <button type="button" class="btn" id="btnVerPdfReporte">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg>
+        Ver PDF
+      </button>
+    </div>
+  </div>
+</div>
+
 </div><!-- /#appShell -->
 
 <!-- SDK de Firebase (compat, funciona con <script> normales, sin necesidad de módulos) -->
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+
+<!-- SheetJS: leer/generar archivos .xlsx en el navegador (importar/exportar equipos) -->
+<!-- xlsx (importar/exportar Excel) y jsPDF (generar PDF) se cargan bajo demanda
+     desde script.js (función cargarLibreria) solo cuando el usuario realmente
+     usa esas funciones, para no alargar la carga inicial de la página. -->
 
 <script src="config.js"></script>
 <script src="auth.js"></script>
