@@ -30,7 +30,9 @@ const APP_CONFIG = {
     usuarioEmail: 'usuario_email',
     usuarios: 'usuarios',
     tecnicos: 'tecnicos',
-    configuracion: 'configuracion'
+    configuracion: 'configuracion',
+    equipos: 'equipos',
+    reportes: 'reportes'
   },
 
   /* ---------- Límites para la subida del logo ----------
@@ -46,6 +48,17 @@ const APP_CONFIG = {
      ⚠️ Debe ser EXACTAMENTE el mismo dominio que usaste al crear
      tu usuario semilla (anderalb@...) en Firebase Authentication. */
   DOMINIO_CORREO_INTERNO: 'gestionmtto.app',
+
+  /* ---------- Formato oficial del PDF de reporte de mantenimiento ----------
+     Datos fijos que aparecen en el encabezado del PDF (esquina superior
+     derecha). Si cambia la versión del formato, actualízalos aquí. */
+  FORMATO_REPORTE: {
+    titulo: 'FORMATO DE REPORTE DE MANTENIMIENTO',
+    codigo: 'MN-FOR-2',
+    version: '2',
+    fechaEmision: '20 Agosto 2026'
+  },
+
 
   /* ---------- Fecha de referencia ----------
      Se usa para resaltar el mes actual en el calendario y para
@@ -81,79 +94,4 @@ const APP_CONFIG = {
     calPrev: '#calPrev',
     calNext: '#calNext'
   }
-};
-
-/* ==============================================================
-   Datos de ejemplo (mock) del cronograma anual de mantenimiento.
-   Clave: 'año-mes' (mes de 1 a 12) -> arreglo de eventos.
-   Cada evento: { d: día, t: nombre del equipo, c: clase/tipo }
-   c puede ser: 'preventivo' | 'correctivo' | 'metrologia'
-
-   ⚠️ Esto es solo información de ejemplo para el frontend.
-   Cuando conectes la lógica real (script.js), lo natural es
-   reemplazar EVENTOS_MOCK por datos que vengan de tu API/BD,
-   por ejemplo dentro de una función `cargarEventosCalendario()`.
-   ============================================================== */
-const EVENTOS_MOCK = {
-  '2026-1': [
-    { d: 14, t: 'Compresor A-12', c: 'preventivo' },
-    { d: 28, t: 'Motor M-33', c: 'preventivo' }
-  ],
-  '2026-2': [
-    { d: 11, t: 'Bomba B-04', c: 'correctivo' },
-    { d: 20, t: 'Caldera C-01', c: 'preventivo' },
-    { d: 26, t: 'Bomba B-04', c: 'metrologia' }
-  ],
-  '2026-3': [
-    { d: 6, t: 'Compresor A-12', c: 'preventivo' },
-    { d: 19, t: 'Bomba B-04', c: 'preventivo' }
-  ],
-  '2026-4': [
-    { d: 9, t: 'Motor M-33', c: 'preventivo' },
-    { d: 24, t: 'Compresor A-12', c: 'metrologia' }
-  ],
-  '2026-5': [
-    { d: 7, t: 'Compresor A-12', c: 'preventivo' },
-    { d: 21, t: 'Caldera C-01', c: 'preventivo' }
-  ],
-  '2026-6': [
-    { d: 4, t: 'Bomba B-04', c: 'preventivo' },
-    { d: 16, t: 'Compresor A-12', c: 'correctivo' }
-  ],
-  '2026-7': [
-    { d: 10, t: 'Bomba B-04', c: 'preventivo' },
-    { d: 22, t: 'Compresor A-12', c: 'preventivo' },
-    { d: 30, t: 'Motor M-33', c: 'metrologia' }
-  ],
-  '2026-8': [
-    { d: 4, t: 'Compresor A-12', c: 'preventivo' },
-    { d: 6, t: 'Motor M-33', c: 'preventivo' },
-    { d: 12, t: 'Caldera C-01', c: 'preventivo' },
-    { d: 12, t: 'Bomba B-04', c: 'correctivo' },
-    { d: 18, t: 'Bomba B-04', c: 'preventivo' },
-    { d: 25, t: 'Compresor A-12', c: 'preventivo' }
-  ],
-  '2026-9': [
-    { d: 2, t: 'Motor M-33', c: 'preventivo' },
-    { d: 15, t: 'Caldera C-01', c: 'preventivo' },
-    { d: 22, t: 'Caldera C-01', c: 'metrologia' }
-  ],
-  '2026-10': [
-    { d: 8, t: 'Compresor A-12', c: 'preventivo' }
-  ],
-  '2026-11': [
-    { d: 5, t: 'Bomba B-04', c: 'preventivo' },
-    { d: 17, t: 'Motor M-33', c: 'correctivo' }
-  ],
-  '2026-12': [
-    { d: 3, t: 'Compresor A-12', c: 'preventivo' },
-    { d: 10, t: 'Caldera C-01', c: 'preventivo' }
-  ],
-  '2025-12': [
-    { d: 12, t: 'Compresor A-12', c: 'preventivo' }
-  ],
-  '2027-1': [
-    { d: 8, t: 'Compresor A-12', c: 'preventivo' },
-    { d: 20, t: 'Bomba B-04', c: 'metrologia' }
-  ]
 };
