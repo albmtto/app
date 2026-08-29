@@ -623,9 +623,18 @@
                 <select id="rep-aprueba" required><option value="">Cargando técnicos…</option></select>
               </div>
               <div class="campo">
+                <label for="rep-tipo-equipo">Tipo de equipo <span class="req" aria-hidden="true">*</span></label>
+                <select id="rep-tipo-equipo" required>
+                  <option value="" disabled selected>— Seleccione —</option>
+                  <option value="Equipo">Equipo</option>
+                  <option value="Área">Área</option>
+                  <option value="Metrología">Metrología</option>
+                </select>
+              </div>
+              <div class="campo">
                 <label for="rep-equipo">Equipo <span class="req" aria-hidden="true">*</span></label>
-                <select id="rep-equipo" required>
-                  <option value="">Cargando equipos…</option>
+                <select id="rep-equipo" required disabled>
+                  <option value="">Primero selecciona el tipo de equipo</option>
                 </select>
               </div>
               <div class="campo">
@@ -912,6 +921,9 @@
           <tr><td>Nombre</td><td>Sí</td><td>Texto libre.</td></tr>
           <tr><td>Ubicación</td><td>Sí</td><td>Texto libre.</td></tr>
           <tr><td>Tipo</td><td>Sí</td><td>Equipo · Área · Metrología</td></tr>
+          <tr><td>Marca</td><td>No</td><td>Texto libre. Se guarda en la ficha técnica del equipo (no aparece en la tabla de Lista de equipos).</td></tr>
+          <tr><td>Modelo</td><td>No</td><td>Texto libre. Igual que Marca.</td></tr>
+          <tr><td>Serie</td><td>No</td><td>Texto libre. Igual que Marca.</td></tr>
           <tr><td>Frecuencia mantenimiento</td><td>Sí</td><td>Mensual · Trimestral · Semestral · Anual</td></tr>
           <tr><td>Mes inicio mantenimiento</td><td>Solo si no es Mensual</td><td>Nombre del mes (Ej. Marzo) o número 1-12. Los demás meses se calculan automáticamente según la frecuencia.</td></tr>
           <tr><td>Frecuencia certificación</td><td>Solo si Tipo = Metrología</td><td>Semestral · Anual</td></tr>
