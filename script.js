@@ -884,6 +884,9 @@ const ALIAS_COLUMNAS_EQUIPOS = {
   nombre: 'nombre',
   ubicacion: 'ubicacion', 'ubicación': 'ubicacion',
   tipo: 'tipo',
+  marca: 'marca',
+  modelo: 'modelo',
+  serie: 'serie', 'número de serie': 'serie', 'numero de serie': 'serie', 'n° serie': 'serie', 'no. serie': 'serie',
   'frecuencia mantenimiento': 'frecuencia', frecuencia: 'frecuencia',
   'mes inicio mantenimiento': 'mesInicio', 'mes de inicio mantenimiento': 'mesInicio', 'mes inicio': 'mesInicio',
   'frecuencia certificacion': 'frecuenciaCert', 'frecuencia de certificacion': 'frecuenciaCert',
@@ -934,18 +937,20 @@ async function descargarPlantillaEquipos() {
   const filas = [
     {
       'Código': 'EQ-001', 'Nombre': 'Compresor A-12', 'Ubicación': 'Planta 1', 'Tipo': 'Equipo',
+      'Marca': 'Copeland', 'Modelo': 'ZR-61', 'Serie': '24681012',
       'Frecuencia mantenimiento': 'Trimestral', 'Mes inicio mantenimiento': 'Enero',
       'Frecuencia certificación': '', 'Mes inicio certificación': ''
     },
     {
       'Código': 'EQ-010', 'Nombre': 'Termómetro digital', 'Ubicación': 'Laboratorio', 'Tipo': 'Metrología',
+      'Marca': 'Testo', 'Modelo': '104-IR', 'Serie': '30512099',
       'Frecuencia mantenimiento': 'Semestral', 'Mes inicio mantenimiento': 'Marzo',
       'Frecuencia certificación': 'Semestral', 'Mes inicio certificación': 'Marzo'
     }
   ];
 
   const hoja = XLSX.utils.json_to_sheet(filas);
-  hoja['!cols'] = [{ wch: 10 }, { wch: 24 }, { wch: 16 }, { wch: 12 }, { wch: 22 }, { wch: 24 }, { wch: 22 }, { wch: 24 }];
+  hoja['!cols'] = [{ wch: 10 }, { wch: 24 }, { wch: 16 }, { wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 22 }, { wch: 24 }, { wch: 22 }, { wch: 24 }];
 
   const libro = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(libro, hoja, 'Equipos');
@@ -1026,6 +1031,9 @@ async function manejarImportarEquiposExcel(e) {
           nombre: fila.nombre || '',
           ubicacion: fila.ubicacion || '',
           tipo: fila.tipo || '',
+          marca: fila.marca || '',
+          modelo: fila.modelo || '',
+          serie: fila.serie || '',
           mantenimiento: fila.mantenimiento
         };
         if (fila.certificacion) datos.certificacion = fila.certificacion;
@@ -1066,11 +1074,14 @@ async function manejarExportarEquiposExcel() {
     'Código': d.codigo || '',
     'Nombre': d.nombre || '',
     'Ubicación': d.ubicacion || '',
-    'Tipo': d.tipo || ''
+    'Tipo': d.tipo || '',
+    'Marca': d.marca || '',
+    'Modelo': d.modelo || '',
+    'Serie': d.serie || ''
   }));
 
   const hoja = XLSX.utils.json_to_sheet(filas);
-  hoja['!cols'] = [{ wch: 12 }, { wch: 30 }, { wch: 22 }, { wch: 12 }];
+  hoja['!cols'] = [{ wch: 12 }, { wch: 30 }, { wch: 22 }, { wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
 
   const libro = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(libro, hoja, 'Equipos');
@@ -1519,7 +1530,7 @@ function initCronograma() {
    aquí: un solo listener por colección alimenta todos los <select>
    que la necesiten y mantiene las opciones sincronizadas en vivo.
    ============================================================== */
-let hvEquipoSelect, repEquipoSelect, repRealizaSelect, repApruebaSelect;
+let hvEquipoSelect, repEquipoSelect, repTipoEquipoSelect, repRealizaSelect, repApruebaSelect;
 
 // Reemplaza las <option> de un <select>, conservando el valor
 // seleccionado si sigue existiendo en la nueva lista de opciones.
@@ -1578,12 +1589,15 @@ function actualizarOpcionesSelect(selectEl, opciones, textoVacio) {
 // tanto la tabla de la pestaña Equipos como estos dos <select>, para no
 // abrir 2 escuchas distintas sobre la misma colección.
 function actualizarSelectsEquipos(snapshot) {
+  // Hoja de vida sigue mostrando todos los equipos, sin filtro por tipo.
   const opciones = snapshot.docs.map(doc => {
     const d = doc.data();
     return { value: d.codigo, label: `${d.codigo} · ${d.nombre}`, dataset: { nombre: d.nombre || '', ubicacion: d.ubicacion || '' } };
   });
   actualizarOpcionesSelect(hvEquipoSelect, opciones, 'No hay equipos registrados');
-  actualizarOpcionesSelect(repEquipoSelect, opciones, 'No hay equipos registrados');
+
+  // "Generar reporte" filtra por el tipo elegido en rep-tipo-equipo.
+  actualizarOpcionesRepEquipo();
 
   // Cada vez que cambia la lista de equipos, refrescamos también
   // el historial de reportes del equipo actualmente seleccionado
@@ -1591,9 +1605,38 @@ function actualizarSelectsEquipos(snapshot) {
   if (hvEquipoSelect) cargarHistorialReportes(hvEquipoSelect.value);
 }
 
+// Repuebla el <select> "rep-equipo" solo con los equipos cuyo campo
+// "tipo" coincide con el elegido en "rep-tipo-equipo". Si todavía no
+// se ha elegido un tipo, el select queda vacío y bloqueado.
+function actualizarOpcionesRepEquipo() {
+  if (!repEquipoSelect) return;
+
+  const tipoFiltro = repTipoEquipoSelect ? repTipoEquipoSelect.value : '';
+
+  if (!tipoFiltro) {
+    actualizarOpcionesSelect(repEquipoSelect, [], 'Primero selecciona el tipo de equipo');
+    return;
+  }
+
+  const opciones = equiposCache
+    .filter(d => (d.tipo || 'Equipo') === tipoFiltro)
+    .map(d => ({
+      value: d.codigo,
+      label: `${d.codigo} · ${d.nombre}`,
+      dataset: { nombre: d.nombre || '', ubicacion: d.ubicacion || '' }
+    }));
+
+  actualizarOpcionesSelect(repEquipoSelect, opciones, `No hay equipos de tipo "${tipoFiltro}" registrados`);
+}
+
 function initSelectsEquipos() {
   hvEquipoSelect = document.getElementById('hv-equipo');
   repEquipoSelect = document.getElementById('rep-equipo');
+  repTipoEquipoSelect = document.getElementById('rep-tipo-equipo');
+
+  if (repTipoEquipoSelect) {
+    repTipoEquipoSelect.addEventListener('change', actualizarOpcionesRepEquipo);
+  }
 }
 
 // Un solo listener de "tecnicos" (arriba, en initEscuchaTecnicos) alimenta
@@ -1918,6 +1961,7 @@ async function manejarSubmitReporte(e) {
 
     alert('Reporte guardado correctamente.');
     formReporte.reset();
+    actualizarOpcionesRepEquipo(); // el reset del <select> nativo no dispara "change"
   } catch (err) {
     console.error('Error al guardar el reporte:', err);
     alert('No se pudo guardar el reporte. Inténtalo de nuevo.');
