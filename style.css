@@ -64,6 +64,7 @@
   .usuario .nombre{text-align:right;font-size:var(--fs-sm);line-height:1.3}
   .usuario .nombre small{display:block;color:var(--text-muted);font-size:var(--fs-xs)}
   .avatar{width:40px;height:40px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:var(--fs-sm);font-weight:600}
+  .sidebar-usuario{display:none}
   .hamburguesa{
     display:none;width:44px;height:44px;border:1px solid var(--border);background:var(--surface);
     border-radius:var(--radius-sm);cursor:pointer;align-items:center;justify-content:center;flex-shrink:0;
@@ -159,7 +160,8 @@
   .documento .doc-titulo .ic{width:40px;height:40px;border-radius:var(--radius-sm);background:var(--violet-soft);display:flex;align-items:center;justify-content:center;flex-shrink:0}
   .documento h3{font-size:var(--fs-sm)}
   .documento .doc-estado{font-size:var(--fs-xs);color:var(--text-muted)}
-  .documento .doc-acciones{display:flex;gap:var(--s2);flex-wrap:wrap;margin-top:auto}
+  .doc-acciones{display:flex;gap:var(--s2);flex-wrap:wrap}
+  .documento .doc-acciones{margin-top:auto}
 
   /* Formularios */
   .formulario{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s4) var(--s5)}
@@ -250,7 +252,15 @@
     .formulario{grid-template-columns:1fr}
     .topbar{flex-direction:column;align-items:stretch}
     .topbar .top-fila{display:flex;justify-content:space-between;align-items:center}
-    .usuario .nombre{text-align:left}
+    .topbar > .usuario{display:none}
+    .topbar .top-fila h1{font-size:var(--fs-base);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .sidebar .logo{display:none}
+    .sidebar-usuario{
+      display:flex;align-items:center;gap:var(--s3);
+      padding:var(--s4);border-bottom:1px solid var(--border);margin-bottom:var(--s2);
+    }
+    .sidebar-usuario .nombre{text-align:left;font-size:var(--fs-sm);line-height:1.3}
+    .sidebar-usuario .nombre small{display:block;color:var(--text-muted);font-size:var(--fs-xs)}
   }
   @media (prefers-reduced-motion:reduce){
     *,*::before,*::after{transition-duration:.01ms!important;animation-duration:.01ms!important}
@@ -269,6 +279,20 @@
     padding:var(--s5);background:var(--bg);
   }
   .login-pantalla[hidden]{display:none}
+
+  /* ============ Pantalla de carga inicial (boot splash) ============ */
+  .boot-splash{
+    position:fixed;inset:0;z-index:100;background:var(--bg);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--s3);
+    color:var(--text-muted);font-size:var(--fs-sm);
+  }
+  .boot-splash[hidden]{display:none}
+  .boot-splash-spinner{
+    width:36px;height:36px;border-radius:50%;
+    border:3px solid var(--border);border-top-color:var(--primary);
+    animation:boot-spin .8s linear infinite;
+  }
+  @keyframes boot-spin{to{transform:rotate(360deg)}}
   .login-tarjeta{
     width:100%;max-width:360px;background:var(--surface);border:1px solid var(--border);
     border-radius:var(--radius);box-shadow:var(--shadow-md);padding:var(--s6);
@@ -285,6 +309,28 @@
     padding:var(--s3) var(--s4);font-size:var(--fs-sm);font-weight:600;
   }
   .login-error[hidden]{display:none}
+
+  /* ============ Selects (menús desplegables) ============
+     Por defecto el navegador dibuja cada <select> con su propio
+     estilo nativo (plano, sin bordes redondeados, flecha distinta
+     según el sistema operativo) — por eso se ven tan diferentes al
+     resto de los campos. Aquí les damos el mismo aspecto que los
+     inputs de texto: mismo borde, radio, alto y una flecha propia. */
+  select{
+    appearance:none;-webkit-appearance:none;-moz-appearance:none;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+    background-repeat:no-repeat;
+    background-position:right 12px center;
+    background-size:16px;
+    padding-right:36px!important;
+    cursor:pointer;
+  }
+  .login-campo select{
+    min-height:44px;padding:0 var(--s4);padding-right:36px;border:1px solid var(--border);
+    border-radius:var(--radius-sm);font-size:var(--fs-base);font-family:inherit;
+    color:var(--text);background-color:var(--surface);
+  }
+  .login-campo select:focus-visible{outline:3px solid var(--primary);outline-offset:1px}
 
   /* ============ Estado vacío en listas ============ */
   .lista-vacia{color:var(--text-muted);font-size:var(--fs-sm);padding:var(--s4) 0;text-align:center;grid-column:1/-1}
@@ -307,3 +353,13 @@
   .modal-cerrar:hover{background:var(--surface-alt);color:var(--text)}
   .modal-campos-password{display:flex;flex-direction:column;gap:var(--s4)}
   .modal-acciones{display:flex;justify-content:flex-end;gap:var(--s3);margin-top:var(--s2)}
+
+  /* ---------- Modal ancho (detalle de reporte) ---------- */
+  .modal-tarjeta--ancho{max-width:680px}
+  .detalle-reporte{display:flex;flex-direction:column;gap:var(--s4)}
+  .detalle-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s3) var(--s5)}
+  .detalle-grid .dato{display:flex;flex-direction:column;gap:2px}
+  .dato > span:first-child{font-size:var(--fs-xs);font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em}
+  .detalle-texto{font-size:var(--fs-sm);white-space:pre-wrap;margin:0}
+  .detalle-fotos{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:var(--s2);margin-top:var(--s1)}
+  .detalle-fotos img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:var(--radius-sm);border:1px solid var(--border);cursor:pointer}
