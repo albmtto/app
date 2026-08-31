@@ -61,6 +61,13 @@ function initNavegacion() {
     secciones.forEach(s => s.hidden = true);
     enlace.setAttribute('aria-current', 'page');
     document.getElementById(enlace.dataset.mod).hidden = false;
+
+    // Cada vez que se entra a "Generar reporte" se reinicia el
+    // asistente en el paso 1 (por si había quedado a mitad de camino
+    // en una visita anterior).
+    if (enlace.dataset.mod === 'reporte' && typeof repIrAPaso === 'function') {
+      repIrAPaso(1);
+    }
   }
 
   enlaces.forEach(a => {
@@ -240,12 +247,18 @@ function obtenerEventosMes(anio, mes) {
     }
   });
 
-  // Los correctivos (que sí tienen día) van primero y ordenados por día;
-  // preventivo/metrología (sin día) se ordenan alfabéticamente detrás.
-  return eventos.sort(
-    (a, b) => (a.d || 99) - (b.d || 99) || a.t.localeCompare(b.t)
-  );
+  // Orden solicitado: primero Correctivos (ordenados por día), después
+  // Preventivos (alfabético) y por último Metrología (alfabético).
+  const ORDEN_TIPO = { correctivo: 0, preventivo: 1, metrologia: 2 };
+  return eventos.sort((a, b) => {
+    const ordenTipo = (ORDEN_TIPO[a.c] ?? 9) - (ORDEN_TIPO[b.c] ?? 9);
+    if (ordenTipo !== 0) return ordenTipo;
+    if (a.c === 'correctivo') return (a.d || 99) - (b.d || 99) || a.t.localeCompare(b.t);
+    return a.t.localeCompare(b.t);
+  });
 }
+
+const CAL_MAX_EVENTOS_VISIBLES = 5;
 
 function renderCalendario() {
   if (!calGrid || !calTitulo) return;
@@ -277,20 +290,70 @@ function renderCalendario() {
       li.textContent = 'Sin mantenimientos programados';
       ul.appendChild(li);
     } else {
-      eventos.forEach(ev => {
-        const li = document.createElement('li');
-        const span = document.createElement('span');
-        span.className = `cal-chip ${ev.c}`;
-        const prefijo = ev.d ? `${ev.d} · ` : '';
-        span.textContent = `${prefijo}${ev.t} – ${APP_CONFIG.TIPO_LABEL[ev.c] || ev.c}`;
-        li.appendChild(span);
-        ul.appendChild(li);
+      eventos.slice(0, CAL_MAX_EVENTOS_VISIBLES).forEach(ev => {
+        ul.appendChild(crearItemEventoCalendario(ev));
       });
+      if (eventos.length > CAL_MAX_EVENTOS_VISIBLES) {
+        const li = document.createElement('li');
+        li.className = 'vacio';
+        li.style.cursor = 'pointer';
+        li.style.textDecoration = 'underline';
+        li.textContent = `+${eventos.length - CAL_MAX_EVENTOS_VISIBLES} más…`;
+        ul.appendChild(li);
+      }
+    }
+
+    if (eventos.length > 0) {
+      mes.style.cursor = 'pointer';
+      mes.title = 'Ver todos los mantenimientos programados de este mes';
+      mes.addEventListener('click', () => abrirModalMesCalendario(APP_CONFIG.MESES[m], anioVista, eventos));
     }
 
     mes.appendChild(ul);
     calGrid.appendChild(mes);
   }
+}
+
+function crearItemEventoCalendario(ev) {
+  const li = document.createElement('li');
+  const span = document.createElement('span');
+  span.className = `cal-chip ${ev.c}`;
+  const prefijo = ev.d ? `${ev.d} · ` : '';
+  span.textContent = `${prefijo}${ev.t} – ${APP_CONFIG.TIPO_LABEL[ev.c] || ev.c}`;
+  li.appendChild(span);
+  return li;
+}
+
+/* ---------- Modal: todos los mantenimientos programados de un mes ---------- */
+let modalMesCalendario, modalMesCalendarioTitulo, modalMesCalendarioLista;
+
+function cachearElementosModalMes() {
+  modalMesCalendario = document.getElementById('modalMesCalendario');
+  modalMesCalendarioTitulo = document.getElementById('modalMesCalendarioTitulo');
+  modalMesCalendarioLista = document.getElementById('modalMesCalendarioLista');
+}
+
+function abrirModalMesCalendario(nombreMes, anio, eventos) {
+  if (!modalMesCalendario) return;
+  modalMesCalendarioTitulo.textContent = `Mantenimientos programados · ${nombreMes} ${anio}`;
+  modalMesCalendarioLista.innerHTML = '';
+  eventos.forEach(ev => modalMesCalendarioLista.appendChild(crearItemEventoCalendario(ev)));
+  modalMesCalendario.hidden = false;
+}
+
+function cerrarModalMesCalendario() {
+  if (modalMesCalendario) modalMesCalendario.hidden = true;
+}
+
+function initModalMesCalendario() {
+  cachearElementosModalMes();
+  if (!modalMesCalendario) return;
+  modalMesCalendario.querySelectorAll('[data-cerrar-modal]').forEach(el => {
+    el.addEventListener('click', cerrarModalMesCalendario);
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !modalMesCalendario.hidden) cerrarModalMesCalendario();
+  });
 }
 
 // Escucha en tiempo real solo los reportes de tipo "Correctivo" (son los
@@ -667,7 +730,7 @@ function initTecnicos() {
    en vez de duplicar filas.
    Campos por documento: { codigo, nombre, ubicacion, tipo }
    ============================================================== */
-let tablaEquiposBody, equiposImportarInput, equiposImportarEstado, btnExportarEquiposExcel;
+let tablaEquiposBody, equiposImportarInput, equiposImportarEstado, btnExportarEquiposExcel, equiposBuscadorInput;
 let modalEquipo, formEquipo, modalEquipoTitulo, modalEquipoError, equipoCodigoEdicionInput,
     campoEquipoCodigo, campoEquipoNombre, campoEquipoUbicacion, campoEquipoTipo,
     btnAgregarEquipo, btnGuardarEquipo;
@@ -681,6 +744,7 @@ function cachearElementosEquipos() {
   equiposImportarInput = document.getElementById('equiposImportarInput');
   equiposImportarEstado = document.getElementById('equiposImportarEstado');
   btnExportarEquiposExcel = document.getElementById('btnExportarEquiposExcel');
+  equiposBuscadorInput = document.getElementById('equiposBuscador');
 
   modalImportarEquipos = document.getElementById('modalImportarEquipos');
   btnImportarEquiposExcel = document.getElementById('btnImportarEquiposExcel');
@@ -804,7 +868,6 @@ function actualizarUITipoEquipo() {
 
 function renderizarTablaEquipos(snapshot) {
   equiposCache = snapshot.docs.map(doc => doc.data());
-  tablaEquiposBody.innerHTML = '';
 
   if (snapshot.empty) {
     tablaEquiposBody.innerHTML =
@@ -812,8 +875,30 @@ function renderizarTablaEquipos(snapshot) {
     return;
   }
 
-  snapshot.forEach(doc => {
-    const d = doc.data();
+  renderizarFilasEquipos(filtrarEquiposPorBusqueda(equiposCache));
+}
+
+// Filtra una lista de equipos según lo escrito en el buscador (sin tildes,
+// sin importar mayúsculas), comparando contra código, nombre, ubicación y tipo.
+function filtrarEquiposPorBusqueda(lista) {
+  const termino = equiposBuscadorInput ? normalizarClave(equiposBuscadorInput.value) : '';
+  if (!termino) return lista;
+  return lista.filter(d => {
+    const texto = normalizarClave(`${d.codigo || ''} ${d.nombre || ''} ${d.ubicacion || ''} ${d.tipo || ''}`);
+    return termino.split(/\s+/).every(palabra => texto.includes(palabra));
+  });
+}
+
+function renderizarFilasEquipos(lista) {
+  tablaEquiposBody.innerHTML = '';
+
+  if (lista.length === 0) {
+    tablaEquiposBody.innerHTML =
+      '<tr><td colspan="5" class="lista-vacia">No se encontraron equipos que coincidan con la búsqueda.</td></tr>';
+    return;
+  }
+
+  lista.forEach(d => {
     const tr = document.createElement('tr');
     tr.innerHTML =
       `<td>${escaparHtml(d.codigo)}</td>` +
@@ -1284,6 +1369,9 @@ function initEquiposLista() {
 
   equiposImportarInput.addEventListener('change', manejarImportarEquiposExcel);
   btnExportarEquiposExcel.addEventListener('click', manejarExportarEquiposExcel);
+  if (equiposBuscadorInput) {
+    equiposBuscadorInput.addEventListener('input', () => renderizarFilasEquipos(filtrarEquiposPorBusqueda(equiposCache)));
+  }
 
   btnImportarEquiposExcel.addEventListener('click', abrirModalImportarEquipos);
   btnElegirArchivoEquipos.addEventListener('click', () => {
@@ -1530,7 +1618,30 @@ function initCronograma() {
    aquí: un solo listener por colección alimenta todos los <select>
    que la necesiten y mantiene las opciones sincronizadas en vivo.
    ============================================================== */
-let hvEquipoSelect, repEquipoSelect, repTipoEquipoSelect, repRealizaSelect, repApruebaSelect;
+let hvEquipoSelect, hvTipoEquipoSelect, hvBuscadorInput, hvBuscadorResultados,
+    repEquipoSelect, repTipoEquipoSelect, repRealizaSelect, repApruebaSelect,
+    repBuscadorInput, repBuscadorResultados;
+
+// Arma las opciones de un <select> de equipos filtradas por tipo, listadas
+// como "Nombre · Código · Ubicación" y ordenadas alfabéticamente por nombre.
+// Se reutiliza tanto en "Generar reporte" como en "Hoja de vida".
+function opcionesEquipoPorTipo(tipoFiltro) {
+  return equiposCache
+    .filter(d => (d.tipo || 'Equipo') === tipoFiltro)
+    .slice()
+    .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' }))
+    .map(d => ({
+      value: d.codigo,
+      label: `${d.nombre || '(sin nombre)'} · ${d.codigo} · ${d.ubicacion || '—'}`,
+      dataset: {
+        nombre: d.nombre || '',
+        ubicacion: d.ubicacion || '',
+        marca: d.marca || '',
+        modelo: d.modelo || '',
+        serie: d.serie || ''
+      }
+    }));
+}
 
 // Reemplaza las <option> de un <select>, conservando el valor
 // seleccionado si sigue existiendo en la nueva lista de opciones.
@@ -1589,14 +1700,8 @@ function actualizarOpcionesSelect(selectEl, opciones, textoVacio) {
 // tanto la tabla de la pestaña Equipos como estos dos <select>, para no
 // abrir 2 escuchas distintas sobre la misma colección.
 function actualizarSelectsEquipos(snapshot) {
-  // Hoja de vida sigue mostrando todos los equipos, sin filtro por tipo.
-  const opciones = snapshot.docs.map(doc => {
-    const d = doc.data();
-    return { value: d.codigo, label: `${d.codigo} · ${d.nombre}`, dataset: { nombre: d.nombre || '', ubicacion: d.ubicacion || '' } };
-  });
-  actualizarOpcionesSelect(hvEquipoSelect, opciones, 'No hay equipos registrados');
-
-  // "Generar reporte" filtra por el tipo elegido en rep-tipo-equipo.
+  // "Hoja de vida" y "Generar reporte" ahora filtran por el tipo elegido.
+  actualizarOpcionesHvEquipo();
   actualizarOpcionesRepEquipo();
 
   // Cada vez que cambia la lista de equipos, refrescamos también
@@ -1618,24 +1723,156 @@ function actualizarOpcionesRepEquipo() {
     return;
   }
 
-  const opciones = equiposCache
-    .filter(d => (d.tipo || 'Equipo') === tipoFiltro)
-    .map(d => ({
-      value: d.codigo,
-      label: `${d.codigo} · ${d.nombre}`,
-      dataset: { nombre: d.nombre || '', ubicacion: d.ubicacion || '' }
-    }));
+  actualizarOpcionesSelect(repEquipoSelect, opcionesEquipoPorTipo(tipoFiltro), `No hay equipos de tipo "${tipoFiltro}" registrados`);
+}
 
-  actualizarOpcionesSelect(repEquipoSelect, opciones, `No hay equipos de tipo "${tipoFiltro}" registrados`);
+// Igual que la anterior, pero para el <select> "hv-equipo" de Hoja de vida.
+function actualizarOpcionesHvEquipo() {
+  if (!hvEquipoSelect) return;
+
+  const tipoFiltro = hvTipoEquipoSelect ? hvTipoEquipoSelect.value : '';
+
+  if (!tipoFiltro) {
+    actualizarOpcionesSelect(hvEquipoSelect, [], 'Primero selecciona el tipo de equipo');
+    return;
+  }
+
+  actualizarOpcionesSelect(hvEquipoSelect, opcionesEquipoPorTipo(tipoFiltro), `No hay equipos de tipo "${tipoFiltro}" registrados`);
+}
+
+/* ---------- Buscador inteligente de equipos (Hoja de vida) ---------- */
+// Permite elegir el equipo escribiendo directamente, sin tener que
+// escoger primero el tipo. Filtra equiposCache por código/nombre/
+// ubicación (sin tildes ni mayúsculas) y muestra sugerencias; al elegir
+// una, sincroniza el filtro por tipo y selecciona el equipo real.
+function renderizarSugerenciasHv(lista) {
+  hvBuscadorResultados.innerHTML = '';
+
+  if (lista.length === 0) {
+    hvBuscadorResultados.style.display = 'none';
+    return;
+  }
+
+  lista.slice(0, 12).forEach(d => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'reporte-item';
+    item.style.cssText = 'display:block;width:100%;text-align:left;border:none;border-bottom:1px solid var(--border);background:none;padding:var(--s2) var(--s3);cursor:pointer';
+    item.textContent = `${d.tipo} · ${d.nombre || '(sin nombre)'} · ${d.codigo} · ${d.ubicacion || '—'}`;
+    item.addEventListener('click', () => seleccionarEquipoDesdeBuscadorHv(d));
+    hvBuscadorResultados.appendChild(item);
+  });
+
+  hvBuscadorResultados.style.display = 'block';
+}
+
+function seleccionarEquipoDesdeBuscadorHv(d) {
+  const tipo = d.tipo || 'Equipo';
+  hvTipoEquipoSelect.value = tipo;
+  actualizarOpcionesHvEquipo();
+  hvEquipoSelect.value = d.codigo;
+  hvEquipoSelect.dispatchEvent(new Event('change'));
+  hvBuscadorResultados.style.display = 'none';
+  hvBuscadorInput.value = '';
+}
+
+function manejarBusquedaHv() {
+  const termino = normalizarClave(hvBuscadorInput.value);
+  if (!termino) {
+    hvBuscadorResultados.style.display = 'none';
+    return;
+  }
+  const palabras = termino.split(/\s+/);
+  const resultados = equiposCache.filter(d => {
+    const texto = normalizarClave(`${d.codigo || ''} ${d.nombre || ''} ${d.ubicacion || ''} ${d.tipo || ''}`);
+    return palabras.every(p => texto.includes(p));
+  }).sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' }));
+
+  renderizarSugerenciasHv(resultados);
+}
+
+/* ---------- Buscador inteligente de equipos (Generar reporte) ---------- */
+// Igual que el buscador de Hoja de vida, pero para el paso 1 del
+// asistente de "Generar reporte".
+function renderizarSugerenciasRep(lista) {
+  repBuscadorResultados.innerHTML = '';
+
+  if (lista.length === 0) {
+    repBuscadorResultados.style.display = 'none';
+    return;
+  }
+
+  lista.slice(0, 12).forEach(d => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'reporte-item';
+    item.style.cssText = 'display:block;width:100%;text-align:left;border:none;border-bottom:1px solid var(--border);background:none;padding:var(--s2) var(--s3);cursor:pointer';
+    item.textContent = `${d.tipo} · ${d.nombre || '(sin nombre)'} · ${d.codigo} · ${d.ubicacion || '—'}`;
+    item.addEventListener('click', () => seleccionarEquipoDesdeBuscadorRep(d));
+    repBuscadorResultados.appendChild(item);
+  });
+
+  repBuscadorResultados.style.display = 'block';
+}
+
+function seleccionarEquipoDesdeBuscadorRep(d) {
+  const tipo = d.tipo || 'Equipo';
+  repTipoEquipoSelect.value = tipo;
+  actualizarOpcionesRepEquipo();
+  repEquipoSelect.value = d.codigo;
+  repEquipoSelect.dispatchEvent(new Event('change'));
+  repBuscadorResultados.style.display = 'none';
+  repBuscadorInput.value = '';
+}
+
+function manejarBusquedaRep() {
+  const termino = normalizarClave(repBuscadorInput.value);
+  if (!termino) {
+    repBuscadorResultados.style.display = 'none';
+    return;
+  }
+  const palabras = termino.split(/\s+/);
+  const resultados = equiposCache.filter(d => {
+    const texto = normalizarClave(`${d.codigo || ''} ${d.nombre || ''} ${d.ubicacion || ''} ${d.tipo || ''}`);
+    return palabras.every(p => texto.includes(p));
+  }).sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' }));
+
+  renderizarSugerenciasRep(resultados);
 }
 
 function initSelectsEquipos() {
   hvEquipoSelect = document.getElementById('hv-equipo');
+  hvTipoEquipoSelect = document.getElementById('hv-tipo-equipo');
+  hvBuscadorInput = document.getElementById('hv-buscador');
+  hvBuscadorResultados = document.getElementById('hv-buscador-resultados');
   repEquipoSelect = document.getElementById('rep-equipo');
   repTipoEquipoSelect = document.getElementById('rep-tipo-equipo');
+  repBuscadorInput = document.getElementById('rep-buscador');
+  repBuscadorResultados = document.getElementById('rep-buscador-resultados');
 
   if (repTipoEquipoSelect) {
     repTipoEquipoSelect.addEventListener('change', actualizarOpcionesRepEquipo);
+  }
+  if (hvTipoEquipoSelect) {
+    hvTipoEquipoSelect.addEventListener('change', actualizarOpcionesHvEquipo);
+  }
+  if (hvBuscadorInput) {
+    hvBuscadorInput.addEventListener('input', manejarBusquedaHv);
+    document.addEventListener('click', e => {
+      if (!hvBuscadorResultados) return;
+      if (e.target !== hvBuscadorInput && !hvBuscadorResultados.contains(e.target)) {
+        hvBuscadorResultados.style.display = 'none';
+      }
+    });
+  }
+  if (repBuscadorInput) {
+    repBuscadorInput.addEventListener('input', manejarBusquedaRep);
+    document.addEventListener('click', e => {
+      if (!repBuscadorResultados) return;
+      if (e.target !== repBuscadorInput && !repBuscadorResultados.contains(e.target)) {
+        repBuscadorResultados.style.display = 'none';
+      }
+    });
   }
 }
 
@@ -1651,7 +1888,13 @@ function actualizarSelectsTecnicos(snapshot) {
       dataset: { nombre: d.nombre || '', cargo: d.cargo || '' }
     };
   });
+
+  const valorPrevioRealiza = repRealizaSelect ? repRealizaSelect.value : '';
   actualizarOpcionesSelect(repRealizaSelect, opciones, 'No hay técnicos registrados');
+  agregarOpcionProveedorExterno();
+  if (valorPrevioRealiza === REALIZA_VALOR_EXTERNO) repRealizaSelect.value = REALIZA_VALOR_EXTERNO;
+  actualizarUIRealizaExterno();
+
   actualizarOpcionesSelect(repApruebaSelect, opciones, 'No hay técnicos registrados');
 }
 
@@ -1714,17 +1957,19 @@ function renderizarHistorialReportes(snapshot) {
   // Ordenamos en el cliente (más reciente primero) para no depender
   // de un índice compuesto de Firestore sobre equipoCodigo + fechaHora.
   const reportes = snapshot.docs
-    .map(doc => doc.data())
+    .map(doc => ({ id: doc.id, ...doc.data() }))
     .sort((a, b) => (b.fechaHora?.toMillis?.() || 0) - (a.fechaHora?.toMillis?.() || 0));
 
   reportes.forEach(d => {
     const li = document.createElement('li');
+    li.style.cssText = 'display:flex;align-items:stretch;gap:var(--s2)';
     const clase = claseTipoReporte(d.tipo);
     const duracion = formatearDuracion(calcularDuracionHoras(d.horaInicio, d.horaFin));
 
     const btn = document.createElement('button');
     btn.className = 'reporte-item' + (clase ? ' ' + clase : '');
     btn.type = 'button';
+    btn.style.flex = '1';
     btn.innerHTML =
       '<svg class="flecha" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>' +
       `<h4>${escaparHtml(d.tipo)} — ${escaparHtml(d.equipoNombre)}</h4>` +
@@ -1736,9 +1981,35 @@ function renderizarHistorialReportes(snapshot) {
       '</div>';
     btn.addEventListener('click', () => abrirModalDetalleReporte(d));
 
+    const btnEliminar = document.createElement('button');
+    btnEliminar.className = 'btn peligro btn-chico';
+    btnEliminar.type = 'button';
+    btnEliminar.style.alignSelf = 'center';
+    btnEliminar.textContent = 'Eliminar';
+    btnEliminar.addEventListener('click', ev => {
+      ev.stopPropagation();
+      eliminarReporte(d);
+    });
+
     li.appendChild(btn);
+    li.appendChild(btnEliminar);
     hvHistorialEl.appendChild(li);
   });
+}
+
+async function eliminarReporte(reporte) {
+  const confirmado = confirm(
+    `¿Eliminar este reporte de ${reporte.tipo || 'mantenimiento'} (${formatearFechaLarga(reporte.fecha) || 'sin fecha'})?\n\n` +
+    `Esta acción no se puede deshacer.`
+  );
+  if (!confirmado) return;
+
+  try {
+    await db.collection(APP_CONFIG.COLECCIONES.reportes).doc(reporte.id).delete();
+  } catch (err) {
+    console.error('Error al eliminar el reporte:', err);
+    alert('No se pudo eliminar el reporte. Inténtalo de nuevo.');
+  }
 }
 
 function cargarHistorialReportes(codigoEquipo) {
@@ -1785,11 +2056,40 @@ function initHojaDeVida() {
    así caben muchas más sin arriesgarse a superar el límite de
    1 MB por documento que tiene Firestore.
    ============================================================== */
-let formReporte, repFecha, repHini, repHfin, repActividades, repRepuestos, repObs, repEvidencia;
+let formReporte, repFecha, repHini, repHfin, repActividades, repRepuestos, repObs, repEvidencia,
+    repRealizaExternoWrap, repRealizaExternoNombre,
+    repFirmaCanvas, repFirmaCtx, btnLimpiarFirmaExterna,
+    btnRepAtras, btnRepSiguiente, btnRepGenerar, btnRepLimpiar,
+    repPasoTituloEl, repPasoContadorEl, repBarraProgresoEl, repResumenFinalEl;
+
+const REALIZA_VALOR_EXTERNO = '__externo__';
 
 const EVIDENCIA_MAX_DIMENSION = 1280;       // lado más largo, en píxeles, tras comprimir
 const EVIDENCIA_CALIDAD_JPEG = 0.72;        // calidad JPEG (0-1) usada al comprimir
 const EVIDENCIA_MAX_BYTES_TOTAL = 900 * 1024; // presupuesto total (todas las fotos juntas) para no acercarnos al límite de Firestore
+
+// Títulos mostrados en la barra de progreso del asistente. El orden
+// coincide con los atributos "data-paso" de cada bloque ".rep-paso" en
+// el HTML.
+const REP_PASOS = [
+  'Selecciona el equipo',
+  'Fecha del mantenimiento',
+  'Hora de inicio',
+  'Hora final',
+  'Tipo de mantenimiento',
+  'Estado actual del equipo',
+  'Tareas ejecutadas',
+  'Actividades realizadas',
+  'Repuestos utilizados',
+  'Observaciones',
+  'Evidencia fotográfica',
+  '¿Quién realiza el mantenimiento?',
+  '¿Quién aprueba el reporte?',
+  'Confirmar y generar'
+];
+
+let repPasoActual = 1;
+let repFirmaTieneTrazo = false; // true en cuanto el usuario dibuja algo en el lienzo de firma
 
 function cachearElementosReporte() {
   formReporte = document.getElementById('formReporte');
@@ -1800,6 +2100,266 @@ function cachearElementosReporte() {
   repRepuestos = document.getElementById('rep-repuestos');
   repObs = document.getElementById('rep-obs');
   repEvidencia = document.getElementById('rep-evidencia');
+  repRealizaExternoWrap = document.getElementById('rep-realiza-externo-wrap');
+  repRealizaExternoNombre = document.getElementById('rep-realiza-externo-nombre');
+  repFirmaCanvas = document.getElementById('rep-firma-canvas');
+  btnLimpiarFirmaExterna = document.getElementById('btnLimpiarFirmaExterna');
+  btnRepAtras = document.getElementById('btnRepAtras');
+  btnRepSiguiente = document.getElementById('btnRepSiguiente');
+  btnRepGenerar = document.getElementById('btnRepGenerar');
+  btnRepLimpiar = document.getElementById('btnRepLimpiar');
+  repPasoTituloEl = document.getElementById('repPasoTitulo');
+  repPasoContadorEl = document.getElementById('repPasoContador');
+  repBarraProgresoEl = document.getElementById('repBarraProgreso');
+  repResumenFinalEl = document.getElementById('repResumenFinal');
+}
+
+// Añade la opción "Proveedor externo" al final del <select> "Quien realiza"
+// (no se agrega a "Quien aprueba", que solo admite técnicos registrados).
+function agregarOpcionProveedorExterno() {
+  if (!repRealizaSelect) return;
+  if ([...repRealizaSelect.options].some(o => o.value === REALIZA_VALOR_EXTERNO)) return;
+  const opt = document.createElement('option');
+  opt.value = REALIZA_VALOR_EXTERNO;
+  opt.textContent = 'Proveedor externo';
+  repRealizaSelect.appendChild(opt);
+}
+
+// Muestra/oculta el bloque de nombre + firma manuscrita del proveedor
+// externo según lo elegido en "Quien realiza".
+function actualizarUIRealizaExterno() {
+  if (!repRealizaSelect || !repRealizaExternoWrap) return;
+  const esExterno = repRealizaSelect.value === REALIZA_VALOR_EXTERNO;
+  mostrarOcultar(repRealizaExternoWrap, esExterno);
+  repRealizaExternoNombre.required = esExterno;
+  if (!esExterno) {
+    repRealizaExternoNombre.value = '';
+    limpiarFirmaExterna();
+  }
+}
+
+/* ---------- Firma manuscrita del proveedor externo (lienzo táctil) ----------
+   En vez de escribir el nombre con el teclado a modo de firma, el
+   proveedor externo dibuja su firma directamente en pantalla (con el
+   dedo en móvil o con el mouse en escritorio), igual que firmaría en
+   papel. Se usa la API de Pointer Events para soportar mouse, dedo y
+   lápiz óptico con el mismo código. */
+function limpiarFirmaExterna() {
+  if (!repFirmaCanvas || !repFirmaCtx) return;
+  repFirmaCtx.fillStyle = '#ffffff';
+  repFirmaCtx.fillRect(0, 0, repFirmaCanvas.width, repFirmaCanvas.height);
+  repFirmaTieneTrazo = false;
+}
+
+function posicionEnLienzoFirma(e) {
+  const rect = repFirmaCanvas.getBoundingClientRect();
+  const escalaX = repFirmaCanvas.width / rect.width;
+  const escalaY = repFirmaCanvas.height / rect.height;
+  return { x: (e.clientX - rect.left) * escalaX, y: (e.clientY - rect.top) * escalaY };
+}
+
+function initFirmaExternaCanvas() {
+  if (!repFirmaCanvas) return;
+  repFirmaCtx = repFirmaCanvas.getContext('2d');
+  repFirmaCtx.lineWidth = 2.4;
+  repFirmaCtx.lineCap = 'round';
+  repFirmaCtx.lineJoin = 'round';
+  repFirmaCtx.strokeStyle = '#0f172a';
+  limpiarFirmaExterna();
+
+  let dibujando = false;
+
+  repFirmaCanvas.addEventListener('pointerdown', e => {
+    dibujando = true;
+    repFirmaTieneTrazo = true;
+    const { x, y } = posicionEnLienzoFirma(e);
+    repFirmaCtx.beginPath();
+    repFirmaCtx.moveTo(x, y);
+    repFirmaCanvas.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+
+  repFirmaCanvas.addEventListener('pointermove', e => {
+    if (!dibujando) return;
+    const { x, y } = posicionEnLienzoFirma(e);
+    repFirmaCtx.lineTo(x, y);
+    repFirmaCtx.stroke();
+    e.preventDefault();
+  });
+
+  const terminarTrazo = () => { dibujando = false; };
+  repFirmaCanvas.addEventListener('pointerup', terminarTrazo);
+  repFirmaCanvas.addEventListener('pointerleave', terminarTrazo);
+  repFirmaCanvas.addEventListener('pointercancel', terminarTrazo);
+
+  if (btnLimpiarFirmaExterna) {
+    btnLimpiarFirmaExterna.addEventListener('click', limpiarFirmaExterna);
+  }
+}
+
+/* ---------- Asistente paso a paso ----------
+   Muestra un solo bloque ".rep-paso" a la vez (según su atributo
+   "data-paso") y actualiza la barra de progreso. Los campos de los
+   pasos que no están visibles no bloquean el envío del formulario
+   (al tener el atributo "hidden" quedan fuera de la validación nativa
+   del navegador), así que la validación real ocurre en
+   repValidarPasoActual() antes de avanzar, y de nuevo en
+   manejarSubmitReporte() como última comprobación. */
+// Pequeño helper: alterna la visibilidad de un elemento usando tanto el
+// atributo "hidden" como "style.display". Se hace así porque en este
+// proyecto los botones ".btn" (y otros elementos) suelen traer su propio
+// "display" (flex/inline-flex) desde style.css, y eso puede pisar el
+// display:none que el navegador aplica por defecto al atributo "hidden".
+// Forzando también el estilo en línea nos aseguramos de que sí se oculte.
+function mostrarOcultar(el, mostrar) {
+  if (!el) return;
+  el.hidden = !mostrar;
+  el.style.display = mostrar ? '' : 'none';
+}
+
+function repIrAPaso(n) {
+  if (!formReporte) return;
+  const total = REP_PASOS.length;
+  n = Math.min(Math.max(n, 1), total);
+
+  formReporte.querySelectorAll('.rep-paso').forEach(el => {
+    mostrarOcultar(el, Number(el.dataset.paso) === n);
+  });
+  repPasoActual = n;
+
+  if (repPasoTituloEl) repPasoTituloEl.textContent = REP_PASOS[n - 1];
+  if (repPasoContadorEl) repPasoContadorEl.textContent = `Paso ${n} de ${total}`;
+  if (repBarraProgresoEl) repBarraProgresoEl.style.width = `${(n / total) * 100}%`;
+
+  const esUltimoPaso = n === total;
+  mostrarOcultar(btnRepAtras, n !== 1);
+  mostrarOcultar(btnRepSiguiente, !esUltimoPaso);
+  mostrarOcultar(btnRepGenerar, esUltimoPaso);
+  if (esUltimoPaso) repActualizarResumenFinal();
+
+  const panel = formReporte.closest('.panel');
+  if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function repValidarPasoActual() {
+  switch (repPasoActual) {
+    case 1:
+      if (!repEquipoSelect || !repEquipoSelect.value) {
+        alert('Selecciona el equipo antes de continuar.');
+        return false;
+      }
+      return true;
+    case 2:
+      if (!repFecha.value) { alert('Selecciona la fecha del mantenimiento.'); return false; }
+      return true;
+    case 3:
+      if (!repHini.value) { alert('Selecciona la hora de inicio.'); return false; }
+      return true;
+    case 4:
+      if (!repHfin.value) { alert('Selecciona la hora final.'); return false; }
+      if (repHini.value && repHfin.value < repHini.value) {
+        alert('La hora final no puede ser anterior a la hora de inicio.');
+        return false;
+      }
+      return true;
+    case 5:
+      if (!document.querySelector('#reporte input[name="rep-tipo"]:checked')) {
+        alert('Selecciona el tipo de mantenimiento.');
+        return false;
+      }
+      return true;
+    case 6:
+      if (!document.querySelector('#reporte input[name="rep-estado"]:checked')) {
+        alert('Selecciona el estado actual del equipo.');
+        return false;
+      }
+      return true;
+    case 12: {
+      if (!repRealizaSelect || !repRealizaSelect.value) {
+        alert('Selecciona quién realiza el mantenimiento.');
+        return false;
+      }
+      const esExterno = repRealizaSelect.value === REALIZA_VALOR_EXTERNO;
+      if (esExterno) {
+        if (!repRealizaExternoNombre.value.trim()) {
+          alert('Escribe el nombre del proveedor externo.');
+          return false;
+        }
+        if (!repFirmaTieneTrazo) {
+          alert('Dibuja la firma del proveedor externo en el recuadro.');
+          return false;
+        }
+      }
+      return true;
+    }
+    case 13:
+      if (!repApruebaSelect || !repApruebaSelect.value) {
+        alert('Selecciona quién aprueba el reporte.');
+        return false;
+      }
+      return true;
+    default:
+      return true; // pasos sin campos obligatorios (tareas, actividades, repuestos, observaciones, evidencia)
+  }
+}
+
+function repActualizarResumenFinal() {
+  if (!repResumenFinalEl) return;
+  const equipoOpcion = repEquipoSelect.options[repEquipoSelect.selectedIndex];
+  const tecnicoOpcion = repRealizaSelect.options[repRealizaSelect.selectedIndex];
+  const apruebaOpcion = repApruebaSelect.options[repApruebaSelect.selectedIndex];
+  const tipoSeleccionado = document.querySelector('#reporte input[name="rep-tipo"]:checked');
+  const estadoSeleccionado = document.querySelector('#reporte input[name="rep-estado"]:checked');
+  const esExterno = repRealizaSelect.value === REALIZA_VALOR_EXTERNO;
+
+  const nombreEquipo = equipoOpcion && equipoOpcion.dataset ? equipoOpcion.dataset.nombre : '';
+  const nombreRealiza = esExterno
+    ? `${repRealizaExternoNombre.value.trim() || '—'} (proveedor externo)`
+    : (tecnicoOpcion && tecnicoOpcion.dataset ? tecnicoOpcion.dataset.nombre : '—');
+  const nombreAprueba = apruebaOpcion && apruebaOpcion.dataset ? apruebaOpcion.dataset.nombre : '—';
+
+  repResumenFinalEl.innerHTML =
+    `<p><b>Equipo:</b> ${escaparHtml(nombreEquipo || '—')}</p>` +
+    `<p><b>Fecha:</b> ${escaparHtml(repFecha.value || '—')} &nbsp; <b>Horario:</b> ${escaparHtml(repHini.value || '—')} a ${escaparHtml(repHfin.value || '—')}</p>` +
+    `<p><b>Tipo de mantenimiento:</b> ${escaparHtml(tipoSeleccionado ? tipoSeleccionado.value : '—')}</p>` +
+    `<p><b>Estado del equipo:</b> ${escaparHtml(estadoSeleccionado ? estadoSeleccionado.value : '—')}</p>` +
+    `<p><b>Realiza:</b> ${escaparHtml(nombreRealiza || '—')}</p>` +
+    `<p><b>Aprueba:</b> ${escaparHtml(nombreAprueba || '—')}</p>`;
+}
+
+function initWizardReporte() {
+  if (!formReporte) return;
+
+  if (btnRepSiguiente) {
+    btnRepSiguiente.addEventListener('click', () => {
+      if (repValidarPasoActual()) repIrAPaso(repPasoActual + 1);
+    });
+  }
+  if (btnRepAtras) {
+    btnRepAtras.addEventListener('click', () => repIrAPaso(repPasoActual - 1));
+  }
+  if (btnRepLimpiar) {
+    btnRepLimpiar.addEventListener('click', () => {
+      const confirmado = confirm('¿Limpiar todos los datos del reporte y empezar de nuevo?');
+      if (!confirmado) return;
+      formReporte.reset();
+      actualizarOpcionesRepEquipo();
+      actualizarUIRealizaExterno();
+      limpiarFirmaExterna();
+      repIrAPaso(1);
+    });
+  }
+
+  // Evita que la tecla Enter envíe el formulario antes de llegar al
+  // último paso (por ejemplo, al presionar Enter dentro de un campo
+  // de texto en un paso intermedio).
+  formReporte.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && repPasoActual !== REP_PASOS.length) {
+      e.preventDefault();
+    }
+  });
+
+  repIrAPaso(1);
 }
 
 // Redimensiona y recomprime una foto en el navegador (canvas) antes de
@@ -1878,6 +2438,22 @@ async function manejarSubmitReporte(e) {
     return;
   }
 
+  const realizaEsExterno = repRealizaSelect.value === REALIZA_VALOR_EXTERNO;
+  const nombreProveedorExterno = repRealizaExternoNombre ? repRealizaExternoNombre.value.trim() : '';
+  if (realizaEsExterno && !nombreProveedorExterno) {
+    alert('Escribe el nombre del proveedor externo.');
+    return;
+  }
+
+  let firmaExternaBase64 = null;
+  if (realizaEsExterno) {
+    if (!repFirmaTieneTrazo) {
+      alert('Dibuja la firma del proveedor externo en el recuadro.');
+      return;
+    }
+    firmaExternaBase64 = repFirmaCanvas.toDataURL('image/png');
+  }
+
   const apruebaOpcion = repApruebaSelect.options[repApruebaSelect.selectedIndex];
   if (!repApruebaSelect.value) {
     alert('Selecciona quién aprueba el reporte.');
@@ -1925,9 +2501,14 @@ async function manejarSubmitReporte(e) {
     equipoCodigo: repEquipoSelect.value,
     equipoNombre: equipoOpcion.dataset.nombre || '',
     equipoUbicacion: equipoOpcion.dataset.ubicacion || '',
-    realizaId: repRealizaSelect.value,
-    realizaNombre: tecnicoOpcion.dataset.nombre || '',
-    realizaCargo: tecnicoOpcion.dataset.cargo || '',
+    equipoMarca: equipoOpcion.dataset.marca || '',
+    equipoModelo: equipoOpcion.dataset.modelo || '',
+    equipoSerie: equipoOpcion.dataset.serie || '',
+    realizaId: realizaEsExterno ? null : repRealizaSelect.value,
+    realizaEsExterno,
+    realizaNombre: realizaEsExterno ? nombreProveedorExterno : (tecnicoOpcion.dataset.nombre || ''),
+    realizaCargo: realizaEsExterno ? '' : (tecnicoOpcion.dataset.cargo || ''),
+    firmaExternaBase64: realizaEsExterno ? firmaExternaBase64 : null,
     apruebaId: repApruebaSelect.value,
     apruebaNombre: apruebaOpcion.dataset.nombre || '',
     apruebaCargo: apruebaOpcion.dataset.cargo || '',
@@ -1962,6 +2543,9 @@ async function manejarSubmitReporte(e) {
     alert('Reporte guardado correctamente.');
     formReporte.reset();
     actualizarOpcionesRepEquipo(); // el reset del <select> nativo no dispara "change"
+    actualizarUIRealizaExterno();
+    limpiarFirmaExterna();
+    repIrAPaso(1);
   } catch (err) {
     console.error('Error al guardar el reporte:', err);
     alert('No se pudo guardar el reporte. Inténtalo de nuevo.');
@@ -1977,6 +2561,10 @@ function initGenerarReporte() {
 
   initSelectRealiza();
   initSelectAprueba();
+  initFirmaExternaCanvas();
+  initWizardReporte();
+
+  if (repRealizaSelect) repRealizaSelect.addEventListener('change', actualizarUIRealizaExterno);
 
   formReporte.addEventListener('submit', manejarSubmitReporte);
 }
@@ -2317,9 +2905,9 @@ async function construirPdfReporte(reporte) {
   const colDerX = margen + anchoUtil / 2;
 
   const filasEquipo = [
-    ['Código', reporte.equipoCodigo || 'No registra', 'Marca', 'No registra'],
-    ['Nombre', reporte.equipoNombre || 'No registra', 'Modelo', 'No registra'],
-    ['Ubicación', reporte.equipoUbicacion || 'No registra', 'Serie', 'No registra']
+    ['Código', reporte.equipoCodigo || 'No registra', 'Marca', reporte.equipoMarca || 'No registra'],
+    ['Nombre', reporte.equipoNombre || 'No registra', 'Modelo', reporte.equipoModelo || 'No registra'],
+    ['Ubicación', reporte.equipoUbicacion || 'No registra', 'Serie', reporte.equipoSerie || 'No registra']
   ];
 
   doc.setFontSize(9);
@@ -2514,7 +3102,22 @@ cajasTexto.forEach(([titulo, texto]) => {
 
   const yImagenFirma = y;
   const altoImagenFirma = 16;
-  await insertarImagenAjustada(doc, firmaRealiza, xFirmaIzq, yImagenFirma, anchoFirma, altoImagenFirma);
+  if (reporte.realizaEsExterno) {
+    if (reporte.firmaExternaBase64) {
+      // Firma manuscrita dibujada en pantalla por el proveedor externo.
+      await insertarImagenAjustada(doc, reporte.firmaExternaBase64, xFirmaIzq, yImagenFirma, anchoFirma, altoImagenFirma);
+    } else {
+      // Compatibilidad con reportes antiguos guardados antes de tener
+      // firma dibujada: se escribe el nombre a modo de firma manuscrita
+      // (fuente cursiva), centrado en la caja.
+      doc.setFont('courier', 'italic');
+      doc.setFontSize(13);
+      doc.setTextColor(0);
+      doc.text(reporte.realizaNombre || '—', xFirmaIzq + anchoFirma / 2, yImagenFirma + altoImagenFirma / 2 + 3, { align: 'center' });
+    }
+  } else {
+    await insertarImagenAjustada(doc, firmaRealiza, xFirmaIzq, yImagenFirma, anchoFirma, altoImagenFirma);
+  }
   await insertarImagenAjustada(doc, firmaAprueba, xFirmaDer, yImagenFirma, anchoFirma, altoImagenFirma);
   y += altoImagenFirma;
 
@@ -2530,7 +3133,10 @@ doc.setFontSize(9.5);
 
 // ---------- NOMBRE ----------
 
-// Firma izquierda
+// Firma izquierda: si es proveedor externo, se muestra igual que un
+// técnico normal ("Nombre: <nombre ingresado>"); la leyenda
+// "Proveedor externo" se escribe aparte, en el renglón de abajo
+// (donde normalmente iría el cargo).
 doc.setFont('courier', 'bold');
 doc.text('Nombre:', xFirmaIzq, y);
 
@@ -2560,18 +3166,25 @@ y += 5;
 
 // ---------- CARGO ----------
 
-// Firma izquierda
-doc.setFont('courier', 'bold');
-doc.text('Cargo:', xFirmaIzq, y);
+// Firma izquierda: cargo normal para técnicos; para proveedor externo,
+// en este mismo renglón (debajo del nombre) se escribe la leyenda
+// "Proveedor externo" en vez de un cargo.
+if (reporte.realizaEsExterno) {
+  doc.setFont('courier', 'bold');
+  doc.text('Proveedor externo', xFirmaIzq, y);
+} else {
+  doc.setFont('courier', 'bold');
+  doc.text('Cargo:', xFirmaIzq, y);
 
-const anchoCargoIzq = doc.getTextWidth('Cargo:');
+  const anchoCargoIzq = doc.getTextWidth('Cargo:');
 
-doc.setFont('courier', 'normal');
-doc.text(
-  ` ${reporte.realizaCargo || '—'}`,
-  xFirmaIzq + anchoCargoIzq,
-  y
-);
+  doc.setFont('courier', 'normal');
+  doc.text(
+    ` ${reporte.realizaCargo || '—'}`,
+    xFirmaIzq + anchoCargoIzq,
+    y
+  );
+}
 
 // Firma derecha
 doc.setFont('courier', 'bold');
@@ -2663,7 +3276,7 @@ function nombreArchivoPdfReporte(reporte) {
     'equipo'
   ).replace(/[^\w-]+/g, '_');
 
-  return `MN-FOR-2 ${fechaFormateada} ${codigoEquipo}.pdf`;
+  return `MN-FOR-2 ${reporte.tipo || 'Mantenimiento'} ${fechaFormateada} ${codigoEquipo}.pdf`;
 }
 
 async function generarYDescargarPdfReporte(reporte) {
@@ -2697,6 +3310,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initHojaDeVida();
   initGenerarReporte();
   initModalDetalleReporte();
+  initModalMesCalendario();
 
   // TODO: aquí es donde puedes ir conectando la lógica real de
   // negocio, por ejemplo:
