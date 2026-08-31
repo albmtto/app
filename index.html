@@ -233,6 +233,10 @@
               </button>
             </div>
           </div>
+          <div class="campo" style="max-width:600px;margin:var(--s4) 0 var(--s4) var(--s4);display:flex !important;flex-direction:row !important;align-items:center !important;gap:var(--s3);text-align:left !important">
+            <label for="equiposBuscador" style="white-space:nowrap;margin:0 !important;text-align:left !important;flex-shrink:0">Buscar equipo</label>
+            <input type="search" id="equiposBuscador" placeholder="Busca por código, nombre, ubicación o tipo…" autocomplete="off" style="flex:1;min-width:0">
+          </div>
           <p id="equiposImportarEstado" class="doc-estado" hidden></p>
           <div class="tabla-scroll">
             <table>
@@ -252,21 +256,13 @@
           <div class="documento">
             <div class="doc-titulo">
               <span class="ic" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
-              <div><h3>Programa de mantenimiento de equipos e instalaciones</h3><span class="doc-estado">Creado · 15/01/2026 · v3</span></div>
+              <div><h3>Programa de mantenimiento de equipos e instalaciones</h3><span class="doc-estado">No Creado</span></div>
             </div>
             <p class="doc-estado">Define alcances, responsables y frecuencias del mantenimiento por equipo e instalación.</p>
             <div class="doc-acciones">
-              <button class="btn secundario btn-chico" type="button">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg>
-                Ver PDF
-              </button>
               <button class="btn btn-chico" type="button">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
-                Editar
-              </button>
-              <button class="btn peligro btn-chico" type="button">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
-                Eliminar
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                Crear
               </button>
             </div>
           </div>
@@ -276,7 +272,7 @@
               <span class="ic" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
               <div><h3>Cronograma de mantenimiento</h3><span class="doc-estado" id="cronogramaEstado">Generado automáticamente</span></div>
             </div>
-            <p class="doc-estado">Cronograma de los mantenimientos preventivos y metrologia de los equipos y areas.</p>
+            <p class="doc-estado">Cronograma de los mantenimientos preventivos a equipos y areas asi como también cronograma de metrologia a equipos que midan, pesen o cuenten.</p>
             <div class="doc-acciones">
               <button class="btn secundario btn-chico" type="button" id="btnVerCronograma">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -326,12 +322,27 @@
             <h2 style="border:none;background:none;padding:0">Hoja de vida de equipos</h2>
           </div>
           <div class="cuerpo">
-            <div class="campo" style="max-width:420px;margin-bottom:var(--s4)">
-              <label for="hv-equipo">Selecciona el equipo a consultar</label>
-              <select id="hv-equipo" name="hv-equipo">
-                <option value="">Cargando equipos…</option>
-              </select>
-              <span class="ayuda">La hoja de vida muestra los documentos del equipo seleccionado</span>
+            <div class="formulario" style="margin-bottom:var(--s4)">
+              <div class="campo">
+                <label for="hv-tipo-equipo">Tipo de equipo</label>
+                <select id="hv-tipo-equipo">
+                  <option value="" disabled selected>— Seleccione —</option>
+                  <option value="Equipo">Equipo</option>
+                  <option value="Área">Área</option>
+                  <option value="Metrología">Metrología</option>
+                </select>
+              </div>
+              <div class="campo">
+                <label for="hv-equipo">Selecciona el equipo o área a consultar</label>
+                <select id="hv-equipo" name="hv-equipo" disabled>
+                  <option value="">Primero selecciona el tipo de equipo</option>
+                </select>
+              </div>
+              <div class="campo ancho" style="position:relative">
+                <label for="hv-buscador">O búscalo directamente</label>
+                <input type="search" id="hv-buscador" placeholder="Escribe el código, nombre o ubicación del equipo…" autocomplete="off">
+                <div id="hv-buscador-resultados" class="tabla-scroll" style="display:none;position:absolute;z-index:20;background:var(--surface,#fff);border:1px solid var(--border);border-radius:var(--radius);width:100%;max-height:220px;overflow:auto;box-shadow:0 4px 14px rgba(0,0,0,.12)"></div>
+              </div>
             </div>
 
             <div class="documentos">
@@ -498,8 +509,8 @@
           </div>
         </div>
         <div class="cal-leyenda" aria-hidden="true">
-          <span><i class="cal-chip preventivo">Preventivo</i></span>
           <span><i class="cal-chip correctivo">Correctivo</i></span>
+          <span><i class="cal-chip preventivo">Preventivo</i></span>
           <span><i class="cal-chip metrologia">Metrología</i></span>
           <span><i class="dot" style="background:var(--primary);opacity:.35"></i> Mes anterior</span>
           <span><i class="dot" style="background:var(--primary);border-radius:2px;width:14px"></i> Mes actual</span>
@@ -610,108 +621,228 @@
       <h2 id="h-reporte" class="sr-only">Generar reporte</h2>
       <div class="panel">
         <div class="cabecera"><h2 style="border:none;background:none;padding:0">Generar reporte de mantenimiento</h2></div>
-        <form class="cuerpo formulario" id="formReporte">
-          <fieldset style="grid-column:1/-1">
-            <legend>Datos del reporte</legend>
-            <div class="formulario" style="margin-top:var(--s4)">
-              <div class="campo">
-                <label for="rep-realiza">Quien realiza <span class="req" aria-hidden="true">*</span></label>
-                <select id="rep-realiza" required><option value="">Cargando técnicos…</option></select>
-              </div>
-              <div class="campo">
-                <label for="rep-aprueba">Quien aprueba <span class="req" aria-hidden="true">*</span></label>
-                <select id="rep-aprueba" required><option value="">Cargando técnicos…</option></select>
-              </div>
-              <div class="campo">
-                <label for="rep-tipo-equipo">Tipo de equipo <span class="req" aria-hidden="true">*</span></label>
-                <select id="rep-tipo-equipo" required>
-                  <option value="" disabled selected>— Seleccione —</option>
-                  <option value="Equipo">Equipo</option>
-                  <option value="Área">Área</option>
-                  <option value="Metrología">Metrología</option>
-                </select>
-              </div>
-              <div class="campo">
-                <label for="rep-equipo">Equipo <span class="req" aria-hidden="true">*</span></label>
-                <select id="rep-equipo" required disabled>
-                  <option value="">Primero selecciona el tipo de equipo</option>
-                </select>
-              </div>
-              <div class="campo">
-                <label for="rep-fecha">Fecha <span class="req" aria-hidden="true">*</span></label>
-                <input type="date" id="rep-fecha"required>
-              </div>
-              <div class="campo">
-                <label for="rep-hini">Hora inicio <span class="req" aria-hidden="true">*</span></label>
-                <input type="time" id="rep-hini" required>
-              </div>
-              <div class="campo">
-                <label for="rep-hfin">Hora final <span class="req" aria-hidden="true">*</span></label>
-                <input type="time" id="rep-hfin" required>
+        <div class="cuerpo">
+
+          <!-- Barra de progreso del asistente paso a paso -->
+          <div id="repProgreso" style="margin-bottom:var(--s4)">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:var(--s3);flex-wrap:wrap">
+              <strong id="repPasoTitulo" style="font-size:.95rem"></strong>
+              <span id="repPasoContador" style="color:var(--text-muted);font-size:.85rem"></span>
+            </div>
+            <div style="height:6px;border-radius:999px;background:var(--surface-alt);overflow:hidden;margin-top:var(--s2)">
+              <div id="repBarraProgreso" style="height:100%;width:0%;background:var(--primary);transition:width .25s ease"></div>
+            </div>
+          </div>
+
+          <form class="formulario" id="formReporte" novalidate>
+
+            <!-- Paso 1: Equipo -->
+            <div class="rep-paso" data-paso="1" style="grid-column:1/-1">
+              <fieldset style="grid-column:1/-1">
+                <legend>Selecciona el equipo o área</legend>
+                <div class="formulario" style="margin-top:var(--s4)">
+                  <div class="campo">
+                    <label for="rep-tipo-equipo">Tipo de equipo <span class="req" aria-hidden="true">*</span></label>
+                    <select id="rep-tipo-equipo" required>
+                      <option value="" disabled selected>— Seleccione —</option>
+                      <option value="Equipo">Equipo</option>
+                      <option value="Área">Área</option>
+                      <option value="Metrología">Metrología</option>
+                    </select>
+                  </div>
+                  <div class="campo">
+                    <label for="rep-equipo">Equipo <span class="req" aria-hidden="true">*</span></label>
+                    <select id="rep-equipo" required disabled>
+                      <option value="">Primero selecciona el tipo de equipo</option>
+                    </select>
+                  </div>
+                  <div class="campo ancho" style="position:relative">
+                    <label for="rep-buscador">O búscalo directamente</label>
+                    <input type="search" id="rep-buscador" placeholder="Escribe el código, nombre o ubicación del equipo…" autocomplete="off">
+                    <div id="rep-buscador-resultados" class="tabla-scroll" style="display:none;position:absolute;z-index:20;background:var(--surface,#fff);border:1px solid var(--border);border-radius:var(--radius);width:100%;max-height:220px;overflow:auto;box-shadow:0 4px 14px rgba(0,0,0,.12)"></div>
+                  </div>
+                </div>
+              </fieldset>
+            </div>
+
+            <!-- Paso 2: Fecha -->
+            <div class="rep-paso" data-paso="2" style="grid-column:1/-1" hidden>
+              <fieldset style="grid-column:1/-1">
+                <legend>Fecha del mantenimiento</legend>
+                <div class="formulario" style="margin-top:var(--s4)">
+                  <div class="campo">
+                    <label for="rep-fecha">Fecha <span class="req" aria-hidden="true">*</span></label>
+                    <input type="date" id="rep-fecha" required>
+                  </div>
+                </div>
+              </fieldset>
+            </div>
+
+            <!-- Paso 3: Hora de inicio -->
+            <div class="rep-paso" data-paso="3" style="grid-column:1/-1" hidden>
+              <fieldset style="grid-column:1/-1">
+                <legend>Hora de inicio</legend>
+                <div class="formulario" style="margin-top:var(--s4)">
+                  <div class="campo">
+                    <label for="rep-hini">Hora inicio <span class="req" aria-hidden="true">*</span></label>
+                    <input type="time" id="rep-hini" required>
+                  </div>
+                </div>
+              </fieldset>
+            </div>
+
+            <!-- Paso 4: Hora final -->
+            <div class="rep-paso" data-paso="4" style="grid-column:1/-1" hidden>
+              <fieldset style="grid-column:1/-1">
+                <legend>Hora final</legend>
+                <div class="formulario" style="margin-top:var(--s4)">
+                  <div class="campo">
+                    <label for="rep-hfin">Hora final <span class="req" aria-hidden="true">*</span></label>
+                    <input type="time" id="rep-hfin" required>
+                  </div>
+                </div>
+              </fieldset>
+            </div>
+
+            <!-- Paso 5: Tipo de mantenimiento -->
+            <div class="rep-paso" data-paso="5" style="grid-column:1/-1" hidden>
+              <fieldset class="ancho" style="grid-column:1/-1">
+                <legend>Tipo de mantenimiento</legend>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:var(--s2) var(--s4)">
+                  <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-tipo" value="Preventivo" required> Preventivo</label>
+                  <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-tipo" value="Correctivo"> Correctivo</label>
+                  <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-tipo" value="Locativo"> Locativo</label>
+                  <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-tipo" value="Instalación"> Instalación</label>
+                  <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-tipo" value="Desinstalación"> Desinstalación</label>
+                  <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-tipo" value="Dada de baja"> Dada de baja</label>
+                </div>
+              </fieldset>
+            </div>
+
+            <!-- Paso 6: Estado actual del equipo -->
+            <div class="rep-paso" data-paso="6" style="grid-column:1/-1" hidden>
+              <fieldset class="ancho" style="grid-column:1/-1">
+                <legend>Estado actual del equipo</legend>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:var(--s2) var(--s4)">
+                  <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-estado" value="Funcionando" required> Funcionando</label>
+                  <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-estado" value="Con falla"> Con falla</label>
+                  <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-estado" value="Fuera de servicio"> Fuera de servicio</label>
+                </div>
+              </fieldset>
+            </div>
+
+            <!-- Paso 7: Tareas ejecutadas -->
+            <div class="rep-paso" data-paso="7" style="grid-column:1/-1" hidden>
+              <fieldset class="ancho" style="grid-column:1/-1">
+                <legend>Tareas ejecutadas</legend>
+                <div class="tareas" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:var(--s2) var(--s4);margin-top:var(--s3)">
+                  <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="checkbox"> Ajuste</label>
+                  <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="checkbox"> Configuración</label>
+                  <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="checkbox"> Reparación</label>
+                  <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="checkbox"> Lubricación</label>
+                  <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="checkbox"> Test de temperatura</label>
+                  <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="checkbox"> Limpieza interna</label>
+                  <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="checkbox"> Limpieza externa</label>
+                  <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="checkbox"> Verificación de fugas</label>
+                </div>
+              </fieldset>
+            </div>
+
+            <!-- Paso 8: Actividades realizadas -->
+            <div class="rep-paso" data-paso="8" style="grid-column:1/-1" hidden>
+              <div class="campo ancho">
+                <label for="rep-actividades">Actividades realizadas</label>
+                <textarea id="rep-actividades" rows="6" placeholder="Describe las actividades realizadas…"></textarea>
               </div>
             </div>
-          </fieldset>
 
-          <fieldset class="ancho" style="grid-column:1/-1">
-            <legend >Tipo de mantenimiento</legend>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:var(--s2) var(--s4)">
-              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-tipo" value="Preventivo" required> Preventivo</label>
-              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-tipo" value="Correctivo"> Correctivo</label>
-              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-tipo" value="Locativo"> Locativo</label>
-              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-tipo" value="Instalación"> Instalación</label>
-              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-tipo" value="Desinstalación"> Desinstalación</label>
-              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-tipo" value="Dada de baja"> Dada de baja</label>
+            <!-- Paso 9: Repuestos utilizados -->
+            <div class="rep-paso" data-paso="9" style="grid-column:1/-1" hidden>
+              <div class="campo ancho">
+                <label for="rep-repuestos">Repuestos utilizados</label>
+                <textarea id="rep-repuestos" rows="6" placeholder="Lista los repuestos utilizados…"></textarea>
+              </div>
             </div>
-          </fieldset>
 
-          <fieldset class="ancho" style="grid-column:1/-1">
-            <legend >Estado actual del equipo</legend>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:var(--s2) var(--s4)">
-              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-estado" value="Funcionando" required> Funcionando</label>
-              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-estado" value="Con falla"> Con falla</label>
-              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="radio" name="rep-estado" value="Fuera de servicio"> Fuera de servicio</label>
+            <!-- Paso 10: Observaciones -->
+            <div class="rep-paso" data-paso="10" style="grid-column:1/-1" hidden>
+              <div class="campo ancho">
+                <label for="rep-obs">Observaciones</label>
+                <textarea id="rep-obs" rows="6" placeholder="Observaciones adicionales…"></textarea>
+              </div>
             </div>
-          </fieldset>
 
-          <fieldset class="ancho" style="grid-column:1/-1">
-            <legend>Tareas ejecutadas</legend>
-            <div class="tareas" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:var(--s2) var(--s4);margin-top:var(--s3)">
-              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="checkbox"> Ajuste</label>
-              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="checkbox"> Configuración</label>
-              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="checkbox"> Reparación</label>
-              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="checkbox"> Lubricación</label>
-              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="checkbox"> Test de temperatura</label>
-              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="checkbox"> Limpieza interna</label>
-              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="checkbox"> Limpieza externa</label>
-              <label style="display:flex;align-items:center;gap:var(--s2);min-height:32px"><input type="checkbox"> Verificación de fugas</label>
+            <!-- Paso 11: Evidencia fotográfica -->
+            <div class="rep-paso" data-paso="11" style="grid-column:1/-1" hidden>
+              <div class="campo ancho">
+                <label for="rep-evidencia">Evidencia fotográfica</label>
+                <input type="file" id="rep-evidencia" accept="image/*" multiple>
+                <span class="ayuda">Puedes adjuntar varias fotos; se comprimen automáticamente para ocupar menos espacio</span>
+              </div>
             </div>
-          </fieldset>
 
-          <div class="campo ancho">
-            <label for="rep-actividades">Actividades realizadas</label>
-            <textarea id="rep-actividades" rows="3" placeholder="Describe las actividades realizadas…"></textarea>
-          </div>
-          <div class="campo ancho">
-            <label for="rep-repuestos">Repuestos utilizados</label>
-            <textarea id="rep-repuestos" rows="2" placeholder="Lista los repuestos utilizados…"></textarea>
-          </div>
-          <div class="campo ancho">
-            <label for="rep-obs">Observaciones</label>
-            <textarea id="rep-obs" rows="2" placeholder="Observaciones adicionales…"></textarea>
-          </div>
-          <div class="campo ancho">
-            <label for="rep-evidencia">Evidencia fotográfica</label>
-            <input type="file" id="rep-evidencia" accept="image/*" multiple>
-            <span class="ayuda">Puedes adjuntar varias fotos; se comprimen automáticamente para ocupar menos espacio</span>
-          </div>
-          <div class="acciones">
-            <button class="btn" type="submit">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-              Generar reporte
-            </button>
-            <button class="btn secundario" type="reset">Limpiar</button>
-          </div>
-        </form>
+            <!-- Paso 12: Quién realiza -->
+            <div class="rep-paso" data-paso="12" style="grid-column:1/-1" hidden>
+              <fieldset style="grid-column:1/-1">
+                <legend>¿Quién realiza el mantenimiento?</legend>
+                <div class="formulario" style="margin-top:var(--s4)">
+                  <div class="campo">
+                    <label for="rep-realiza">Quien realiza <span class="req" aria-hidden="true">*</span></label>
+                    <select id="rep-realiza" required><option value="">Cargando técnicos…</option></select>
+                  </div>
+                  <div class="campo ancho" id="rep-realiza-externo-wrap" hidden style="display:none">
+                    <label for="rep-realiza-externo-nombre">Nombre del proveedor externo <span class="req" aria-hidden="true">*</span></label>
+                    <input type="text" id="rep-realiza-externo-nombre" placeholder="Escribe el nombre del proveedor externo">
+                    <span class="ayuda">Este nombre aparecerá como leyenda debajo de la firma en el PDF</span>
+
+                    <label style="display:block;margin-top:var(--s4)">Firma del proveedor externo <span class="req" aria-hidden="true">*</span></label>
+                    <div style="border:1px dashed var(--border);border-radius:var(--radius);background:#fff;touch-action:none;overflow:hidden">
+                      <canvas id="rep-firma-canvas" width="600" height="200" style="display:block;width:100%;height:180px;cursor:crosshair"></canvas>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:var(--s3);margin-top:var(--s2);flex-wrap:wrap">
+                      <span class="ayuda">Dibuja la firma con el dedo o el mouse directamente en el recuadro (no se escribe con teclado)</span>
+                      <button type="button" class="btn secundario btn-chico" id="btnLimpiarFirmaExterna">Limpiar firma</button>
+                    </div>
+                  </div>
+                </div>
+              </fieldset>
+            </div>
+
+            <!-- Paso 13: Quién aprueba -->
+            <div class="rep-paso" data-paso="13" style="grid-column:1/-1" hidden>
+              <fieldset style="grid-column:1/-1">
+                <legend>¿Quién aprueba el reporte?</legend>
+                <div class="formulario" style="margin-top:var(--s4)">
+                  <div class="campo">
+                    <label for="rep-aprueba">Quien aprueba <span class="req" aria-hidden="true">*</span></label>
+                    <select id="rep-aprueba" required><option value="">Cargando técnicos…</option></select>
+                  </div>
+                </div>
+              </fieldset>
+            </div>
+
+            <!-- Paso 14: Confirmar y generar -->
+            <div class="rep-paso" data-paso="14" style="grid-column:1/-1" hidden>
+              <fieldset style="grid-column:1/-1">
+                <legend>Confirmar y generar reporte</legend>
+                <div id="repResumenFinal" class="ayuda" style="margin-top:var(--s3);line-height:1.7"></div>
+              </fieldset>
+            </div>
+
+            <!-- Navegación del asistente -->
+            <div class="acciones" style="grid-column:1/-1;justify-content:space-between;flex-wrap:wrap">
+              <button class="btn secundario" type="button" id="btnRepAtras" hidden style="display:none">Atrás</button>
+              <div style="display:flex;gap:var(--s2);flex-wrap:wrap;margin-left:auto">
+                <button class="btn secundario" type="button" id="btnRepLimpiar">Limpiar todo</button>
+                <button class="btn" type="button" id="btnRepSiguiente">Siguiente</button>
+                <button class="btn" type="submit" id="btnRepGenerar" hidden style="display:none">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                  Generar reporte
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
       </div>
     </section>
 
@@ -1070,6 +1201,20 @@
         </tbody>
       </table>
     </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: Detalle del mes (Calendario) ================= -->
+<div id="modalMesCalendario" class="modal" hidden>
+  <div class="modal-fondo" data-cerrar-modal></div>
+  <div class="modal-tarjeta">
+    <div class="modal-cabecera">
+      <h2 id="modalMesCalendarioTitulo">Mantenimientos programados</h2>
+      <button type="button" class="modal-cerrar" data-cerrar-modal aria-label="Cerrar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <ul class="cal-mes-eventos" id="modalMesCalendarioLista" style="max-height:60vh;overflow:auto"></ul>
   </div>
 </div>
 
