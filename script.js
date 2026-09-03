@@ -90,11 +90,11 @@ function initNavegacion() {
 /* ==============================================================
    1.1 PERMISOS POR ROL
    ------------------------------------------------------------
-   Los usuarios con rol "Técnico" solo deben poder ver los
-   módulos de Generar Orden y Ejecutar Orden. Se llama desde
-   auth.js (initEscuchaSesion) apenas se conoce el perfil.
+   Los usuarios con rol "Técnico" solo deben poder ver el
+   módulo de Generar Reporte. Se llama desde auth.js
+   (initEscuchaSesion) apenas se conoce el perfil.
    ============================================================== */
-const MODULOS_PERMITIDOS_TECNICO = ['ejecutar', 'reporte'];
+const MODULOS_PERMITIDOS_TECNICO = ['reporte'];
 
 function aplicarPermisosPorRol(perfil) {
   const enlaces = document.querySelectorAll(APP_CONFIG.SELECTORES.enlacesNav);
@@ -2078,6 +2078,7 @@ const REP_PASOS = [
   'Hora final',
   'Tipo de mantenimiento',
   'Estado actual del equipo',
+  '¿Se detuvo la producción?',
   'Tareas ejecutadas',
   'Actividades realizadas',
   'Repuestos utilizados',
@@ -2274,7 +2275,13 @@ function repValidarPasoActual() {
         return false;
       }
       return true;
-    case 12: {
+    case 7:
+      if (!document.querySelector('#reporte input[name="rep-parada"]:checked')) {
+        alert('Indica si se detuvo la producción debido a esta intervención.');
+        return false;
+      }
+      return true;
+    case 13: {
       if (!repRealizaSelect || !repRealizaSelect.value) {
         alert('Selecciona quién realiza el mantenimiento.');
         return false;
@@ -2292,7 +2299,7 @@ function repValidarPasoActual() {
       }
       return true;
     }
-    case 13:
+    case 14:
       if (!repApruebaSelect || !repApruebaSelect.value) {
         alert('Selecciona quién aprueba el reporte.');
         return false;
@@ -2310,6 +2317,7 @@ function repActualizarResumenFinal() {
   const apruebaOpcion = repApruebaSelect.options[repApruebaSelect.selectedIndex];
   const tipoSeleccionado = document.querySelector('#reporte input[name="rep-tipo"]:checked');
   const estadoSeleccionado = document.querySelector('#reporte input[name="rep-estado"]:checked');
+  const paradaSeleccionada = document.querySelector('#reporte input[name="rep-parada"]:checked');
   const esExterno = repRealizaSelect.value === REALIZA_VALOR_EXTERNO;
 
   const nombreEquipo = equipoOpcion && equipoOpcion.dataset ? equipoOpcion.dataset.nombre : '';
@@ -2323,6 +2331,7 @@ function repActualizarResumenFinal() {
     `<p><b>Fecha:</b> ${escaparHtml(repFecha.value || '—')} &nbsp; <b>Horario:</b> ${escaparHtml(repHini.value || '—')} a ${escaparHtml(repHfin.value || '—')}</p>` +
     `<p><b>Tipo de mantenimiento:</b> ${escaparHtml(tipoSeleccionado ? tipoSeleccionado.value : '—')}</p>` +
     `<p><b>Estado del equipo:</b> ${escaparHtml(estadoSeleccionado ? estadoSeleccionado.value : '—')}</p>` +
+    `<p><b>¿Detuvo la producción?:</b> ${escaparHtml(paradaSeleccionada ? paradaSeleccionada.value : '—')}</p>` +
     `<p><b>Realiza:</b> ${escaparHtml(nombreRealiza || '—')}</p>` +
     `<p><b>Aprueba:</b> ${escaparHtml(nombreAprueba || '—')}</p>`;
 }
@@ -2462,6 +2471,7 @@ async function manejarSubmitReporte(e) {
 
   const tipoSeleccionado = document.querySelector('#reporte input[name="rep-tipo"]:checked');
   const estadoSeleccionado = document.querySelector('#reporte input[name="rep-estado"]:checked');
+  const paradaSeleccionada = document.querySelector('#reporte input[name="rep-parada"]:checked');
   if (!tipoSeleccionado) {
     alert('Selecciona el tipo de mantenimiento.');
     return;
@@ -2470,6 +2480,11 @@ async function manejarSubmitReporte(e) {
     alert('Selecciona el estado actual del equipo.');
     return;
   }
+  if (!paradaSeleccionada) {
+    alert('Indica si se detuvo la producción debido a esta intervención.');
+    return;
+  }
+  const paradaProduccion = paradaSeleccionada.value === 'Sí';
 
   const fecha = repFecha.value;
   const horaInicio = repHini.value;
@@ -2517,6 +2532,7 @@ async function manejarSubmitReporte(e) {
     horaFin,
     tipo: tipoSeleccionado.value,
     estadoEquipo: estadoSeleccionado.value,
+    paradaProduccion,
     tareas,
     actividades: repActividades.value.trim(),
     repuestos: repRepuestos.value.trim(),
@@ -2582,7 +2598,7 @@ function initGenerarReporte() {
    ============================================================== */
 let modalDetalleReporte, btnVerPdfReporte,
     detEquipo, detTipo, detFecha, detDuracion, detRealiza, detAprueba,
-    detEstado, detTareas, detActividades, detRepuestos, detObservaciones,
+    detEstado, detParada, detTareas, detActividades, detRepuestos, detObservaciones,
     detFotosContenedor, detFotos;
 let reporteSeleccionadoActual = null;
 
@@ -2597,6 +2613,7 @@ function cachearElementosDetalleReporte() {
   detRealiza = document.getElementById('detRealiza');
   detAprueba = document.getElementById('detAprueba');
   detEstado = document.getElementById('detEstado');
+  detParada = document.getElementById('detParada');
   detTareas = document.getElementById('detTareas');
   detActividades = document.getElementById('detActividades');
   detRepuestos = document.getElementById('detRepuestos');
@@ -2616,6 +2633,7 @@ function abrirModalDetalleReporte(reporte) {
   detRealiza.textContent = `${reporte.realizaNombre || '—'}${reporte.realizaCargo ? ' · ' + reporte.realizaCargo : ''}`;
   detAprueba.textContent = `${reporte.apruebaNombre || '—'}${reporte.apruebaCargo ? ' · ' + reporte.apruebaCargo : ''}`;
   detEstado.textContent = reporte.estadoEquipo || '—';
+  detParada.textContent = reporte.paradaProduccion === true ? 'Sí' : (reporte.paradaProduccion === false ? 'No' : '—');
   detTareas.textContent = (reporte.tareas && reporte.tareas.length) ? reporte.tareas.join(', ') : 'Ninguna';
   detActividades.textContent = reporte.actividades || '—';
   detRepuestos.textContent = reporte.repuestos || 'Ninguno';
@@ -3295,12 +3313,370 @@ async function verPdfReporte(reporte) {
 }
 
 /* ==============================================================
-   11. INICIALIZACIÓN
+   11. DASHBOARD
+   ------------------------------------------------------------
+   Todo se calcula en el navegador a partir de un único listener
+   en tiempo real sobre la colección "reportes" (la misma que
+   alimenta Hoja de vida y Generar reporte). No se necesita
+   ninguna colección ni campo adicional en Firestore, salvo el
+   campo "paradaProduccion" (booleano) que ya se guarda desde el
+   paso 7 del asistente de Generar reporte.
+
+   - calcularEstadisticasDashboard(): recorre los reportes una
+     sola vez y arma todos los totales/agrupaciones que necesita
+     el dashboard (por tipo, por equipo, por área, paradas de
+     producción).
+   - Las tarjetas de "Mantenimientos ejecutados" e "Instalaciones
+     y bajas" son clicables (atributo data-tipo): al hacer clic
+     abren el modal de desglose con una gráfica de barras (SVG,
+     sin librerías externas) y una tabla por equipo.
+   - "Eficiencia desglosada" muestra, para los correctivos, el
+     tiempo acumulado por equipo o por área (pestañas).
+   - "Historial de reportes" lista los últimos reportes y abre el
+     modal de detalle ya existente al hacer clic.
+   ============================================================== */
+
+const TIPOS_DASHBOARD = ['Preventivo', 'Correctivo', 'Locativo', 'Instalación', 'Desinstalación', 'Dada de baja'];
+
+const COLOR_POR_TIPO_DASHBOARD = {
+  'Preventivo': '#1e40af',
+  'Correctivo': '#b91c1c',
+  'Locativo': '#6d28d9',
+  'Instalación': '#15803d',
+  'Desinstalación': '#a16207',
+  'Dada de baja': '#b91c1c'
+};
+
+let statsDashboardActual = null;
+let modalDesglose, desgloseTitulo, desgloseResumen, desgloseGrafica, desgloseTablaBody;
+
+// Recorre todos los reportes una sola vez y calcula todo lo que
+// necesita el dashboard: totales por tipo (año/mes actual y por
+// equipo), eficiencia de correctivos (por equipo y por área) y el
+// acumulado de tiempo con producción detenida.
+function calcularEstadisticasDashboard(reportes) {
+  const hoy = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.HOY) ? APP_CONFIG.HOY : new Date();
+  const anioActual = hoy.getFullYear();
+  const mesActual = hoy.getMonth(); // 0-11
+
+  const porTipo = {};
+  TIPOS_DASHBOARD.forEach(t => { porTipo[t] = { anio: 0, mes: 0, porEquipo: new Map() }; });
+
+  let horasCorrectivoTotal = 0;
+  let cantidadCorrectivoTotal = 0;
+  let horasParadaTotal = 0;
+  let cantidadParadaTotal = 0;
+
+  const porEquipoEficiencia = new Map(); // solo correctivos, clave = código de equipo
+  const porAreaEficiencia = new Map();   // solo correctivos, clave = ubicación/área
+
+  reportes.forEach(d => {
+    if (!d.fecha) return;
+    const partes = d.fecha.split('-').map(Number);
+    const anio = partes[0];
+    const mes = (partes[1] || 1) - 1; // 0-11
+    const esAnioActual = anio === anioActual;
+    const esMesActual = esAnioActual && mes === mesActual;
+    const horas = calcularDuracionHoras(d.horaInicio, d.horaFin) || 0;
+
+    if (porTipo[d.tipo]) {
+      if (esAnioActual) porTipo[d.tipo].anio++;
+      if (esMesActual) porTipo[d.tipo].mes++;
+
+      const clave = d.equipoCodigo || d.equipoNombre || '—';
+      const mapaEquipos = porTipo[d.tipo].porEquipo;
+      if (!mapaEquipos.has(clave)) {
+        mapaEquipos.set(clave, { nombre: d.equipoNombre || clave, ubicacion: d.equipoUbicacion || '—', cantidad: 0, horas: 0 });
+      }
+      const entrada = mapaEquipos.get(clave);
+      entrada.cantidad++;
+      entrada.horas += horas;
+    }
+
+    if (d.tipo === 'Correctivo') {
+      horasCorrectivoTotal += horas;
+      cantidadCorrectivoTotal++;
+
+      const claveEquipo = d.equipoCodigo || d.equipoNombre || '—';
+      if (!porEquipoEficiencia.has(claveEquipo)) {
+        porEquipoEficiencia.set(claveEquipo, { nombre: d.equipoNombre || claveEquipo, ubicacion: d.equipoUbicacion || '—', cantidad: 0, horas: 0 });
+      }
+      const eqEntrada = porEquipoEficiencia.get(claveEquipo);
+      eqEntrada.cantidad++;
+      eqEntrada.horas += horas;
+
+      const claveArea = d.equipoUbicacion || 'Sin ubicación';
+      if (!porAreaEficiencia.has(claveArea)) porAreaEficiencia.set(claveArea, { cantidad: 0, horas: 0 });
+      const areaEntrada = porAreaEficiencia.get(claveArea);
+      areaEntrada.cantidad++;
+      areaEntrada.horas += horas;
+    }
+
+    if (d.paradaProduccion === true) {
+      horasParadaTotal += horas;
+      cantidadParadaTotal++;
+    }
+  });
+
+  // Equipo que más falla: mayor cantidad de correctivos (empate -> más horas acumuladas)
+  let equipoMasFalla = null;
+  porEquipoEficiencia.forEach((v, codigo) => {
+    if (!equipoMasFalla || v.cantidad > equipoMasFalla.cantidad ||
+        (v.cantidad === equipoMasFalla.cantidad && v.horas > equipoMasFalla.horas)) {
+      equipoMasFalla = { codigo, ...v };
+    }
+  });
+
+  return {
+    porTipo,
+    correctivo: {
+      cantidad: cantidadCorrectivoTotal,
+      horasTotal: horasCorrectivoTotal,
+      promedioHoras: cantidadCorrectivoTotal ? horasCorrectivoTotal / cantidadCorrectivoTotal : 0
+    },
+    equipoMasFalla,
+    parada: { horasTotal: horasParadaTotal, cantidad: cantidadParadaTotal },
+    porEquipoEficiencia,
+    porAreaEficiencia
+  };
+}
+
+// Gráfica de barras horizontales en SVG puro (sin dependencias externas).
+// Recibe filas ya ordenadas de mayor a menor: [{ etiqueta, cantidad }, ...]
+function construirGraficaBarras(filas, color) {
+  if (!filas.length) return '<p class="ayuda">No hay datos suficientes para graficar.</p>';
+
+  const max = Math.max(...filas.map(f => f.cantidad), 1);
+  const alturaFila = 28;
+  const alturaTotal = filas.length * alturaFila + 8;
+  const anchoBarras = 220;
+  const xBarras = 148;
+
+  let contenido = '';
+  filas.forEach((f, i) => {
+    const y = i * alturaFila + 4;
+    const ancho = Math.max((f.cantidad / max) * anchoBarras, 3);
+    const etiqueta = (f.etiqueta.length > 20 ? f.etiqueta.slice(0, 19) + '…' : f.etiqueta);
+    contenido +=
+      `<text x="0" y="${y + 13}" font-size="12" fill="currentColor">${escaparHtml(etiqueta)}</text>` +
+      `<rect x="${xBarras}" y="${y}" width="${ancho}" height="16" rx="4" fill="${color}"></rect>` +
+      `<text x="${xBarras + ancho + 6}" y="${y + 13}" font-size="12" fill="currentColor" opacity=".65">${f.cantidad}</text>`;
+  });
+
+  return `<svg viewBox="0 0 400 ${alturaTotal}" width="100%" height="${alturaTotal}" role="img" aria-label="Gráfica de barras por equipo" style="color:var(--text)">${contenido}</svg>`;
+}
+
+// Actualiza las tarjetas resumidas y los tres indicadores de eficiencia.
+function renderResumenDashboard(stats) {
+  const idsPorTipo = {
+    'Preventivo': ['dashPreventivoAnio', 'dashPreventivoMes'],
+    'Correctivo': ['dashCorrectivoAnio', 'dashCorrectivoMes'],
+    'Locativo': ['dashLocativoAnio', 'dashLocativoMes'],
+    'Instalación': ['dashInstalacionAnio', 'dashInstalacionMes'],
+    'Desinstalación': ['dashDesinstalacionAnio', 'dashDesinstalacionMes'],
+    'Dada de baja': ['dashBajaAnio', 'dashBajaMes']
+  };
+
+  Object.entries(idsPorTipo).forEach(([tipo, [idAnio, idMes]]) => {
+    const elAnio = document.getElementById(idAnio);
+    const elMes = document.getElementById(idMes);
+    const datos = stats.porTipo[tipo] || { anio: 0, mes: 0 };
+    if (elAnio) elAnio.innerHTML = `${datos.anio} <small>año</small>`;
+    if (elMes) elMes.textContent = `${datos.mes} este mes`;
+  });
+
+  const elEfi = document.getElementById('dashEficienciaCorrectivo');
+  const elEfiDet = document.getElementById('dashEficienciaCorrectivoDetalle');
+  if (elEfi) {
+    elEfi.innerHTML = stats.correctivo.cantidad
+      ? `${formatearDuracion(stats.correctivo.promedioHoras)} <span style="font-size:var(--fs-sm);font-weight:500;color:var(--text-muted)">de promedio</span>`
+      : '— <span style="font-size:var(--fs-sm);font-weight:500;color:var(--text-muted)">de promedio</span>';
+  }
+  if (elEfiDet) {
+    elEfiDet.textContent = stats.correctivo.cantidad
+      ? `Tiempo promedio en que se ejecuta un mantenimiento correctivo, calculado sobre ${stats.correctivo.cantidad} reporte(s) registrados.`
+      : 'Todavía no hay reportes correctivos registrados.';
+  }
+
+  const elFalla = document.getElementById('dashEquipoMasFalla');
+  const elFallaDet = document.getElementById('dashEquipoMasFallaDetalle');
+  if (stats.equipoMasFalla) {
+    if (elFalla) elFalla.textContent = stats.equipoMasFalla.nombre;
+    if (elFallaDet) {
+      elFallaDet.innerHTML =
+        `<b>${stats.equipoMasFalla.cantidad} mantenimiento(s) correctivo(s)</b> generado(s) — el más alto del parque de equipos.<br>` +
+        `Tiempo acumulado invertido en repararlo: <b>${formatearDuracion(stats.equipoMasFalla.horas)}</b>.`;
+    }
+  } else {
+    if (elFalla) elFalla.textContent = 'Sin datos';
+    if (elFallaDet) elFallaDet.textContent = 'Todavía no hay reportes correctivos registrados.';
+  }
+
+  const elParada = document.getElementById('dashParadaProduccion');
+  const elParadaDet = document.getElementById('dashParadaProduccionDetalle');
+  if (elParada) elParada.textContent = formatearDuracion(stats.parada.horasTotal);
+  if (elParadaDet) {
+    elParadaDet.textContent = stats.parada.cantidad
+      ? `Tiempo acumulado en que la producción estuvo detenida por mantenimiento, en ${stats.parada.cantidad} intervención(es).`
+      : 'Todavía no se ha reportado ninguna intervención que detenga la producción.';
+  }
+}
+
+function renderTablaEficienciaEquipo(stats) {
+  const tbody = document.getElementById('dashTablaEficienciaEquipo');
+  if (!tbody) return;
+  const filas = [...stats.porEquipoEficiencia.entries()].sort((a, b) => b[1].horas - a[1].horas);
+  if (!filas.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="lista-vacia">Todavía no hay mantenimientos correctivos registrados.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = filas.map(([codigo, v]) =>
+    `<tr><td>${escaparHtml(v.nombre)} <small style="color:var(--text-muted)">(${escaparHtml(codigo)})</small></td>` +
+    `<td>${v.cantidad}</td><td>${formatearDuracion(v.horas)}</td><td>${formatearDuracion(v.horas / v.cantidad)}</td></tr>`
+  ).join('');
+}
+
+function renderTablaEficienciaArea(stats) {
+  const tbody = document.getElementById('dashTablaEficienciaArea');
+  if (!tbody) return;
+  const filas = [...stats.porAreaEficiencia.entries()].sort((a, b) => b[1].horas - a[1].horas);
+  if (!filas.length) {
+    tbody.innerHTML = '<tr><td colspan="3" class="lista-vacia">Todavía no hay mantenimientos correctivos registrados.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = filas.map(([area, v]) =>
+    `<tr><td>${escaparHtml(area)}</td><td>${v.cantidad}</td><td>${formatearDuracion(v.horas)}</td></tr>`
+  ).join('');
+}
+
+function renderHistorialDashboard(reportes) {
+  const tbody = document.getElementById('dashTablaHistorial');
+  if (!tbody) return;
+
+  const ordenados = [...reportes]
+    .sort((a, b) => (b.fechaHora?.toMillis?.() || 0) - (a.fechaHora?.toMillis?.() || 0))
+    .slice(0, 30);
+
+  if (!ordenados.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="lista-vacia">Todavía no hay reportes registrados.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = '';
+  ordenados.forEach(d => {
+    const tr = document.createElement('tr');
+    tr.style.cursor = 'pointer';
+    tr.innerHTML =
+      `<td>${escaparHtml(d.equipoNombre || '—')}</td>` +
+      `<td>${escaparHtml(d.tipo || '—')}</td>` +
+      `<td>${escaparHtml(formatearFechaLarga(d.fecha))}</td>` +
+      `<td>${formatearDuracion(calcularDuracionHoras(d.horaInicio, d.horaFin))}</td>` +
+      `<td>${escaparHtml(d.realizaNombre || '—')}</td>` +
+      `<td>${d.paradaProduccion ? '<span class="estado vencida">Sí</span>' : 'No'}</td>`;
+    tr.addEventListener('click', () => abrirModalDetalleReporte(d));
+    tbody.appendChild(tr);
+  });
+}
+
+function abrirModalDesglose(tipo) {
+  if (!modalDesglose || !statsDashboardActual) return;
+  const datos = statsDashboardActual.porTipo[tipo];
+  const filas = datos
+    ? [...datos.porEquipo.entries()].map(([codigo, v]) => ({ codigo, ...v })).sort((a, b) => b.cantidad - a.cantidad)
+    : [];
+
+  if (desgloseTitulo) desgloseTitulo.textContent = `${tipo} — desglose por equipo`;
+  if (desgloseResumen) {
+    desgloseResumen.textContent = filas.length
+      ? `${filas.reduce((acc, f) => acc + f.cantidad, 0)} registro(s) en total, distribuidos en ${filas.length} equipo(s)/área(s).`
+      : `Todavía no hay registros de tipo "${tipo}".`;
+  }
+
+  if (desgloseGrafica) {
+    desgloseGrafica.innerHTML = construirGraficaBarras(
+      filas.slice(0, 10).map(f => ({ etiqueta: f.nombre || f.codigo, cantidad: f.cantidad })),
+      COLOR_POR_TIPO_DASHBOARD[tipo] || '#1d4ed8'
+    );
+  }
+
+  if (desgloseTablaBody) {
+    desgloseTablaBody.innerHTML = filas.length
+      ? filas.map(f =>
+          `<tr><td>${escaparHtml(f.nombre)} <small style="color:var(--text-muted)">(${escaparHtml(f.codigo)})</small></td>` +
+          `<td>${escaparHtml(f.ubicacion || '—')}</td><td>${f.cantidad}</td><td>${formatearDuracion(f.horas)}</td></tr>`
+        ).join('')
+      : '<tr><td colspan="4" class="lista-vacia">Sin datos.</td></tr>';
+  }
+
+  modalDesglose.hidden = false;
+}
+
+function cerrarModalDesglose() {
+  if (modalDesglose) modalDesglose.hidden = true;
+}
+
+function initEscuchaReportesDashboard() {
+  if (typeof db === 'undefined' || !APP_CONFIG || !APP_CONFIG.COLECCIONES) return;
+  db.collection(APP_CONFIG.COLECCIONES.reportes).onSnapshot(
+    snapshot => {
+      const reportes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      statsDashboardActual = calcularEstadisticasDashboard(reportes);
+      renderResumenDashboard(statsDashboardActual);
+      renderTablaEficienciaEquipo(statsDashboardActual);
+      renderTablaEficienciaArea(statsDashboardActual);
+      renderHistorialDashboard(reportes);
+    },
+    err => {
+      console.error('Error al cargar los datos del dashboard:', err);
+    }
+  );
+}
+
+function initDashboard() {
+  modalDesglose = document.getElementById('modalDesgloseDashboard');
+  desgloseTitulo = document.getElementById('desgloseTitulo');
+  desgloseResumen = document.getElementById('desgloseResumen');
+  desgloseGrafica = document.getElementById('desgloseGrafica');
+  desgloseTablaBody = document.getElementById('desgloseTablaBody');
+
+  document.querySelectorAll('#dashboard .tarjeta[data-tipo]').forEach(tarjeta => {
+    tarjeta.style.cursor = 'pointer';
+    tarjeta.setAttribute('tabindex', '0');
+    tarjeta.setAttribute('role', 'button');
+    tarjeta.setAttribute('aria-haspopup', 'dialog');
+    const abrir = () => abrirModalDesglose(tarjeta.dataset.tipo);
+    tarjeta.addEventListener('click', abrir);
+    tarjeta.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        abrir();
+      }
+    });
+  });
+
+  if (modalDesglose) {
+    modalDesglose.querySelectorAll('[data-cerrar-modal]').forEach(el => el.addEventListener('click', cerrarModalDesglose));
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && !modalDesglose.hidden) cerrarModalDesglose();
+    });
+  }
+
+  // La pestaña "Por equipo" / "Por área" de Eficiencia desglosada ya
+  // queda funcionando automáticamente: initPestanas() (llamada antes,
+  // en la inicialización general) maneja cualquier [role="tablist"]
+  // con botones .tab, incluida esta.
+
+  initEscuchaReportesDashboard();
+}
+
+/* ==============================================================
+   12. INICIALIZACIÓN
    ============================================================== */
 document.addEventListener('DOMContentLoaded', () => {
   initNavegacion();
   initMenuMovil();
   initPestanas();
+  initDashboard();
   initCalendario();
   initLogo();
   initTecnicos();
@@ -3312,13 +3688,12 @@ document.addEventListener('DOMContentLoaded', () => {
   initModalDetalleReporte();
   initModalMesCalendario();
 
-  // TODO: aquí es donde puedes ir conectando la lógica real de
-  // negocio, por ejemplo:
-  //   initDashboard();     -> cargar KPIs desde la API
+  // TODO: aquí es donde puedes ir conectando el resto de la lógica
+  // de negocio pendiente, por ejemplo:
   //   initGenerarOT();     -> formulario para crear órdenes de trabajo
   //   initEjecutarOT();    -> flujo de ejecución de OT
   //   (logo, técnicos, lista de equipos, hoja de vida —selector +
-  //    historial— y generar reporte ya están conectados arriba;
-  //    Gestión documental, ficha técnica/instructivos de hoja de
-  //    vida y "Generar Orden" quedan pendientes de lógica)
+  //    historial—, generar reporte y dashboard ya están conectados
+  //    arriba; Gestión documental, ficha técnica/instructivos de
+  //    hoja de vida y "Generar Orden" quedan pendientes de lógica)
 });
