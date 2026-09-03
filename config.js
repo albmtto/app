@@ -17,6 +17,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
+const storage = firebase.storage(); // usado por documentos.js para PDFs/archivos de Gestión documental y Hoja de vida
 
 const APP_CONFIG = {
 
@@ -32,7 +33,9 @@ const APP_CONFIG = {
     tecnicos: 'tecnicos',
     configuracion: 'configuracion',
     equipos: 'equipos',
-    reportes: 'reportes'
+    reportes: 'reportes',
+    documentosGenerales: 'documentos_generales', // 1 doc por tipo: programa_mantenimiento, programa_capacitaciones, cronograma_capacitaciones
+    documentosEquipo: 'documentos_equipo'        // 1 doc por equipo (id = código); subcolecciones "actas" y "metrologia" para listas
   },
 
   /* ---------- Límites para la subida del logo ----------
@@ -40,6 +43,20 @@ const APP_CONFIG = {
      a base64 y guardarlo en Firestore (doc configuracion/empresa). */
   LOGO_MAX_BYTES: 2 * 1024 * 1024, // 2 MB
   LOGO_TIPOS_PERMITIDOS: ['image/png', 'image/svg+xml'],
+
+  /* ---------- Límites para subir documentos (Gestión documental / Hoja de vida) ----------
+     A diferencia del logo, estos archivos SÍ se guardan en Firebase Storage
+     (no como base64 en Firestore), porque un PDF fácilmente supera el
+     límite de 1 MB por documento de Firestore. */
+  DOCUMENTO_MAX_BYTES: 15 * 1024 * 1024, // 15 MB
+  DOCUMENTO_TIPOS_PERMITIDOS: [
+    'application/pdf',
+    'image/png',
+    'image/jpeg',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ],
+  DOCUMENTO_EXTENSIONES_ACEPTADAS: '.pdf,.png,.jpg,.jpeg,.doc,.docx',
 
   /* ---------- Dominio para correos internos ----------
      Como Firebase Auth exige un correo, generamos uno sintético
