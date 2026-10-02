@@ -1331,6 +1331,11 @@ async function eliminarEquipo(datos) {
 
     const documentosReportes = reportesSnapshot.docs;
 
+    // Borrar también las fotos (subcolección) de esos reportes.
+    for (const docReporte of documentosReportes) {
+      await eliminarFotosReporte(docReporte.id);
+    }
+
     for (let i = 0; i < documentosReportes.length; i += LOTE_MAX) {
       const lote = documentosReportes.slice(i, i + LOTE_MAX);
       const batch = db.batch();
@@ -2005,6 +2010,7 @@ async function eliminarReporte(reporte) {
   if (!confirmado) return;
 
   try {
+    await eliminarFotosReporte(reporte.id);
     await db.collection(APP_CONFIG.COLECCIONES.reportes).doc(reporte.id).delete();
   } catch (err) {
     console.error('Error al eliminar el reporte:', err);
@@ -2049,12 +2055,14 @@ function initHojaDeVida() {
    10. GENERAR REPORTE
    ------------------------------------------------------------
    Guarda un reporte de mantenimiento en la colección "reportes".
-   Las fotos de evidencia se guardan como base64 (mismo patrón que
-   el logo y la firma de técnicos). No hay límite en la cantidad de
-   fotos que se pueden adjuntar: cada una se comprime en el propio
-   navegador (se reduce su tamaño y calidad) antes de guardarla,
-   así caben muchas más sin arriesgarse a superar el límite de
-   1 MB por documento que tiene Firestore.
+   Las fotos de evidencia se comprimen en el navegador y se guardan
+   como base64 en la subcolección "fotos" del reporte
+   (reportes/{id}/fotos/{n}), un documento por foto. Así cada foto
+   tiene su propio límite de 1 MB y el reporte puede tener tantas
+   fotos como se necesiten, sin usar Firebase Storage. En el documento
+   del reporte solo se guarda "totalFotos". Los reportes antiguos
+   (con el arreglo "fotos" dentro del propio documento) siguen
+   funcionando.
    ============================================================== */
 let formReporte, repFecha, repHini, repHfin, repActividades, repRepuestos, repObs, repEvidencia,
     repRealizaExternoWrap, repRealizaExternoNombre,
@@ -2064,9 +2072,10 @@ let formReporte, repFecha, repHini, repHfin, repActividades, repRepuestos, repOb
 
 const REALIZA_VALOR_EXTERNO = '__externo__';
 
-const EVIDENCIA_MAX_DIMENSION = 1280;       // lado más largo, en píxeles, tras comprimir
-const EVIDENCIA_CALIDAD_JPEG = 0.72;        // calidad JPEG (0-1) usada al comprimir
-const EVIDENCIA_MAX_BYTES_TOTAL = 900 * 1024; // presupuesto total (todas las fotos juntas) para no acercarnos al límite de Firestore
+const EVIDENCIA_MAX_DIMENSION = 1024;       // lado más largo, en píxeles, tras comprimir
+const EVIDENCIA_CALIDAD_JPEG = 0.65;        // calidad JPEG (0-1) usada al comprimir
+const EVIDENCIA_MAX_BYTES_FOTO = 700 * 1024; // tope por foto (cada una es su propio documento de Firestore, máx. 1 MB)
+const EVIDENCIA_LOTE_FOTOS = 10;            // fotos por batch de escritura (el batch admite ~10 MB en total)
 
 // Títulos mostrados en la barra de progreso del asistente. El orden
 // coincide con los atributos "data-paso" de cada bloque ".rep-paso" en
@@ -2396,7 +2405,14 @@ function comprimirImagenComoBase64(archivo) {
         canvas.width = width;
         canvas.height = height;
         canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', EVIDENCIA_CALIDAD_JPEG));
+        // Si por alguna razón la foto sigue siendo muy pesada, baja la calidad hasta que quepa.
+        let calidad = EVIDENCIA_CALIDAD_JPEG;
+        let resultado = canvas.toDataURL('image/jpeg', calidad);
+        while (resultado.length > EVIDENCIA_MAX_BYTES_FOTO && calidad > 0.3) {
+          calidad -= 0.1;
+          resultado = canvas.toDataURL('image/jpeg', calidad);
+        }
+        resolve(resultado);
       };
       img.src = lector.result;
     };
@@ -2409,26 +2425,65 @@ async function leerEvidenciaComoBase64(fileList) {
   if (archivos.length === 0) return [];
 
   const resultados = [];
-  let bytesAcumulados = 0;
 
   for (const archivo of archivos) {
     if (!archivo.type.startsWith('image/')) {
       throw new Error(`"${archivo.name}" no es una imagen válida.`);
     }
-
-    const base64 = await comprimirImagenComoBase64(archivo);
-    bytesAcumulados += base64.length;
-
-    if (bytesAcumulados > EVIDENCIA_MAX_BYTES_TOTAL) {
-      throw new Error(
-        `Las fotos de evidencia pesan demasiado en conjunto (Firestore permite máx. ~1 MB por reporte). ` +
-        `Se lograron procesar ${resultados.length} foto(s); quita alguna(s) o inténtalo con menos fotos.`
-      );
-    }
-
-    resultados.push(base64);
+    resultados.push(await comprimirImagenComoBase64(archivo));
   }
   return resultados;
+}
+
+/* ---------- Fotos del reporte en la subcolección reportes/{id}/fotos ---------- */
+
+const cacheFotosReporte = new Map(); // idReporte -> arreglo de fotos (evita releer Firestore)
+
+function coleccionFotosReporte(idReporte) {
+  return db.collection(APP_CONFIG.COLECCIONES.reportes).doc(idReporte).collection('fotos');
+}
+
+// Guarda las fotos (data URL JPEG) como un documento por foto, en lotes.
+// Si algo falla, borra lo que alcanzó a escribir y relanza el error.
+async function guardarFotosReporte(idReporte, fotosBase64, alProgreso) {
+  const col = coleccionFotosReporte(idReporte);
+  try {
+    for (let i = 0; i < fotosBase64.length; i += EVIDENCIA_LOTE_FOTOS) {
+      const batch = db.batch();
+      fotosBase64.slice(i, i + EVIDENCIA_LOTE_FOTOS).forEach((data, j) => {
+        const orden = i + j;
+        batch.set(col.doc(String(orden).padStart(4, '0')), { orden, data });
+      });
+      await batch.commit();
+      if (alProgreso) alProgreso(Math.min(i + EVIDENCIA_LOTE_FOTOS, fotosBase64.length), fotosBase64.length);
+    }
+  } catch (err) {
+    await eliminarFotosReporte(idReporte).catch(() => {});
+    throw err;
+  }
+}
+
+// Borra todas las fotos de un reporte (Firestore no borra subcolecciones solo).
+async function eliminarFotosReporte(idReporte) {
+  const snap = await coleccionFotosReporte(idReporte).get();
+  for (let i = 0; i < snap.docs.length; i += 400) {
+    const batch = db.batch();
+    snap.docs.slice(i, i + 400).forEach(d => batch.delete(d.ref));
+    await batch.commit();
+  }
+  cacheFotosReporte.delete(idReporte);
+}
+
+// Devuelve las fotos (data URL) de un reporte: las de reportes antiguos
+// vienen dentro del propio documento; las nuevas se leen de la subcolección.
+async function obtenerFotosReporte(reporte) {
+  if (Array.isArray(reporte.fotos)) return reporte.fotos; // reporte antiguo o recién creado (en memoria)
+  if (!reporte.id || !(reporte.totalFotos > 0)) return [];
+  if (cacheFotosReporte.has(reporte.id)) return cacheFotosReporte.get(reporte.id);
+  const snap = await coleccionFotosReporte(reporte.id).orderBy('orden').get();
+  const fotos = snap.docs.map(d => d.data().data);
+  cacheFotosReporte.set(reporte.id, fotos);
+  return fotos;
 }
 
 
@@ -2497,17 +2552,21 @@ async function manejarSubmitReporte(e) {
   const tareas = [...document.querySelectorAll('#reporte .tareas input[type="checkbox"]:checked')]
     .map(cb => cb.closest('label').textContent.trim());
 
-  let fotos;
-  try {
-    fotos = await leerEvidenciaComoBase64(repEvidencia.files);
-  } catch (err) {
-    alert(err.message);
-    return;
-  }
-
   const btnSubmit = formReporte.querySelector('button[type="submit"]');
   const textoOriginal = btnSubmit.textContent;
   btnSubmit.disabled = true;
+
+  let fotos;
+  try {
+    btnSubmit.textContent = 'Procesando fotos…';
+    fotos = await leerEvidenciaComoBase64(repEvidencia.files);
+  } catch (err) {
+    alert(err.message);
+    btnSubmit.disabled = false;
+    btnSubmit.textContent = textoOriginal;
+    return;
+  }
+
   btnSubmit.textContent = 'Guardando…';
 
   // Armamos el objeto una sola vez: se usa tanto para guardarlo en
@@ -2537,16 +2596,34 @@ async function manejarSubmitReporte(e) {
     actividades: repActividades.value.trim(),
     repuestos: repRepuestos.value.trim(),
     observaciones: repObs.value.trim(),
-    fotos
+    fotos // base64 en memoria: se usa solo para el PDF; en Firestore van en la subcolección "fotos"
   };
 
   try {
-    await db.collection(APP_CONFIG.COLECCIONES.reportes).add({
-      ...datosReporte,
-      fechaHora: firebase.firestore.Timestamp.fromDate(new Date(`${fecha}T${horaInicio}`)),
-      creadoPorUid: sesionActual ? sesionActual.uid : null,
-      creadoEn: firebase.firestore.FieldValue.serverTimestamp()
-    });
+    // Id generado de antemano: las fotos se escriben primero y el reporte después,
+    // así el historial nunca muestra un reporte con fotos a medio guardar.
+    const refReporte = db.collection(APP_CONFIG.COLECCIONES.reportes).doc();
+
+    if (fotos.length) {
+      await guardarFotosReporte(refReporte.id, fotos, (n, total) => {
+        btnSubmit.textContent = `Guardando fotos ${n} de ${total}…`;
+      });
+      btnSubmit.textContent = 'Guardando…';
+    }
+
+    const { fotos: _fotosBase64, ...datosSinFotos } = datosReporte;
+    try {
+      await refReporte.set({
+        ...datosSinFotos,
+        totalFotos: fotos.length,
+        fechaHora: firebase.firestore.Timestamp.fromDate(new Date(`${fecha}T${horaInicio}`)),
+        creadoPorUid: sesionActual ? sesionActual.uid : null,
+        creadoEn: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } catch (errGuardar) {
+      await eliminarFotosReporte(refReporte.id).catch(() => {}); // no dejar fotos huérfanas
+      throw errGuardar;
+    }
 
     // Generamos y descargamos el PDF del reporte recién guardado.
     try {
@@ -2640,18 +2717,27 @@ function abrirModalDetalleReporte(reporte) {
   detObservaciones.textContent = reporte.observaciones || '—';
 
   detFotos.innerHTML = '';
-  const fotos = reporte.fotos || [];
-  if (fotos.length) {
-    detFotosContenedor.hidden = false;
-    fotos.forEach(src => {
-      const img = document.createElement('img');
-      img.src = src;
-      img.alt = 'Evidencia fotográfica del reporte';
-      img.addEventListener('click', () => window.open(src, '_blank'));
-      detFotos.appendChild(img);
+  const hayFotos = Array.isArray(reporte.fotos) ? reporte.fotos.length > 0 : reporte.totalFotos > 0;
+  detFotosContenedor.hidden = !hayFotos;
+  if (hayFotos) {
+    detFotos.textContent = 'Cargando fotos…';
+    obtenerFotosReporte(reporte).then(fotos => {
+      if (reporteSeleccionadoActual !== reporte) return; // el usuario ya abrió otro reporte
+      detFotos.innerHTML = '';
+      fotos.forEach(src => {
+        const img = document.createElement('img');
+        img.src = src;
+        img.alt = 'Evidencia fotográfica del reporte';
+        img.addEventListener('click', () => {
+          const w = window.open('', '_blank');
+          if (w) w.document.write(`<img src="${src}" style="max-width:100%">`);
+        });
+        detFotos.appendChild(img);
+      });
+    }).catch(err => {
+      console.error('No se pudieron cargar las fotos del reporte:', err);
+      if (reporteSeleccionadoActual === reporte) detFotos.textContent = 'No se pudieron cargar las fotos.';
     });
-  } else {
-    detFotosContenedor.hidden = true;
   }
 
   modalDetalleReporte.hidden = false;
@@ -3218,7 +3304,7 @@ doc.text(
 );
 
   /* ================= Evidencia fotográfica (nueva hoja, 2 columnas) ================= */
-  const fotos = reporte.fotos || [];
+  const fotos = await obtenerFotosReporte(reporte);
   if (fotos.length) {
     doc.addPage();
     y = margen;
