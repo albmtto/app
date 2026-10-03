@@ -3778,13 +3778,13 @@ function renderRepuestosDashboard() {
         `${d.tipo ? ` <span>· ${escaparHtml(d.tipo)}</span>` : ''}</span>`;
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'repuesto-ver';
+      btn.className = 'btn secundario btn-chico';
       btn.textContent = 'Ver reporte';
       btn.addEventListener('click', () => abrirModalDetalleReporte(d));
       cab.appendChild(btn);
 
       const texto = document.createElement('p');
-      texto.className = 'repuesto-texto';
+      texto.className = 'detalle-texto';
       texto.textContent = d.repuestos.trim(); // tal como se escribió en el reporte
 
       li.append(cab, texto);
