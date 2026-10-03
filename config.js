@@ -81,7 +81,7 @@ const APP_CONFIG = {
      Se usa para resaltar el mes actual en el calendario y para
      calcular vencimientos. En producción, reemplázalo por
      `new Date()`. */
-  HOY: new Date(2026, 7, 25), // 25 de agosto de 2026
+  HOY: new Date(), 
 
   /* ---------- Nombres de los meses (calendario) ---------- */
   MESES: [
