@@ -5,6 +5,50 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mantenimiento · Sistema de Gestión de Mantenimiento</title>
 <link rel="stylesheet" href="style.css">
+<style>
+  /* Paneles colapsables del Dashboard (<details>/<summary> nativos) */
+  details.panel-colapsable > summary.cabecera {
+    display: flex; align-items: center; justify-content: space-between; gap: var(--s3, 12px);
+    cursor: pointer; list-style: none; user-select: none;
+  }
+  details.panel-colapsable > summary.cabecera::-webkit-details-marker { display: none; }
+  details.panel-colapsable > summary.cabecera::after,
+  details.equipo-repuestos > summary::after {
+    content: ""; flex: none; width: 8px; height: 8px; margin-left: auto;
+    border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+    transform: rotate(45deg); transition: transform .2s; opacity: .6;
+  }
+  details.panel-colapsable[open] > summary.cabecera::after,
+  details.equipo-repuestos[open] > summary::after { transform: rotate(-135deg); }
+  details.panel-colapsable > summary.cabecera:focus-visible,
+  details.equipo-repuestos > summary:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
+  .resumen-colapsable {
+    font-size: var(--fs-sm, .85rem); font-weight: 500; color: var(--text-muted, #64748b);
+    background: var(--primary-soft, #eef2ff); border-radius: 999px; padding: 2px 10px; white-space: nowrap;
+  }
+  .resumen-colapsable:empty { display: none; }
+  .filtros-fila { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3, 12px); margin-bottom: var(--s3, 12px); }
+  .filtros-fila label { font-size: var(--fs-sm, .85rem); color: var(--text-muted, #64748b); }
+
+  /* Repuestos por equipo */
+  .lista-repuestos-equipos { display: flex; flex-direction: column; gap: var(--s2, 8px); }
+  details.equipo-repuestos { border: 1px solid var(--border, #e2e8f0); border-radius: 8px; overflow: hidden; }
+  details.equipo-repuestos > summary {
+    display: flex; align-items: center; gap: var(--s3, 12px); padding: 10px 14px;
+    cursor: pointer; list-style: none; user-select: none; font-weight: 600;
+  }
+  details.equipo-repuestos > summary::-webkit-details-marker { display: none; }
+  details.equipo-repuestos > summary:hover { background: var(--primary-soft, #eef2ff); }
+  .equipo-repuestos-nombre small { font-weight: 400; color: var(--text-muted, #64748b); }
+  .equipo-repuestos-detalle { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border, #e2e8f0); }
+  .equipo-repuestos-detalle li { padding: 10px 14px; }
+  .equipo-repuestos-detalle li + li { border-top: 1px dashed var(--border, #e2e8f0); }
+  .repuesto-cabecera { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+  .repuesto-fecha { font-weight: 600; }
+  .repuesto-fecha span { font-weight: 400; color: var(--text-muted, #64748b); }
+  .repuesto-texto { margin: 0; white-space: pre-wrap; word-break: break-word; }
+  .repuesto-ver { font-size: var(--fs-sm, .85rem); background: none; border: 0; padding: 0; color: inherit; text-decoration: underline; cursor: pointer; }
+</style>
 </head>
 <body>
 
@@ -192,10 +236,11 @@
         </div>
       </div>
 
-      <div class="panel">
-        <div class="cabecera">
+      <details class="panel panel-colapsable" data-persist="eficiencia">
+        <summary class="cabecera">
           <h2 style="border:none;background:none;padding:0">Eficiencia desglosada · mantenimientos correctivos</h2>
-        </div>
+          <span class="resumen-colapsable" id="dashEficienciaResumen"></span>
+        </summary>
         <div class="cuerpo">
           <p class="ayuda">Tiempo total y promedio invertido reparando cada equipo o área</p>
 
@@ -223,10 +268,34 @@
             </div>
           </div>
         </div>
-      </div>
+      </details>
 
-      <div class="panel">
-        <div class="cabecera"><h2 style="border:none;background:none;padding:0">Historial de reportes</h2></div>
+      <details class="panel panel-colapsable" data-persist="repuestos">
+        <summary class="cabecera">
+          <h2 style="border:none;background:none;padding:0">Repuestos utilizados</h2>
+          <span class="resumen-colapsable" id="dashRepuestosResumen"></span>
+        </summary>
+        <div class="cuerpo">
+          <p class="ayuda">Equipos que han usado repuestos. Haz clic en un equipo para ver lo que se registró en cada reporte.</p>
+          <div class="filtros-fila">
+            <label for="dashRepuestosPeriodo">Periodo</label>
+            <select id="dashRepuestosPeriodo">
+              <option value="todo">Todo el histórico</option>
+              <option value="anio">Este año</option>
+              <option value="mes">Este mes</option>
+            </select>
+            <label for="dashRepuestosBuscar" class="sr-only">Buscar equipo o repuesto</label>
+            <input type="search" id="dashRepuestosBuscar" placeholder="Buscar equipo o repuesto…" autocomplete="off">
+          </div>
+          <div id="dashListaRepuestos" class="lista-repuestos-equipos"><p class="lista-vacia">Cargando…</p></div>
+        </div>
+      </details>
+
+      <details class="panel panel-colapsable" data-persist="historial">
+        <summary class="cabecera">
+          <h2 style="border:none;background:none;padding:0">Historial de reportes</h2>
+          <span class="resumen-colapsable" id="dashHistorialResumen"></span>
+        </summary>
         <div class="cuerpo">
           <p class="ayuda">Últimos reportes de mantenimiento generados</p>
           <div class="tabla-scroll">
@@ -239,7 +308,7 @@
             </table>
           </div>
         </div>
-      </div>
+      </details>
 
     </section>
 
