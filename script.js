@@ -3598,6 +3598,11 @@ function renderResumenDashboard(stats) {
     if (elFallaDet) elFallaDet.textContent = 'Todavía no hay reportes correctivos registrados.';
   }
 
+  const elEfiResumen = document.getElementById('dashEficienciaResumen');
+  if (elEfiResumen) {
+    elEfiResumen.textContent = stats.correctivo.cantidad ? `${stats.correctivo.cantidad} correctivo(s)` : '';
+  }
+
   const elParada = document.getElementById('dashParadaProduccion');
   const elParadaDet = document.getElementById('dashParadaProduccionDetalle');
   if (elParada) elParada.textContent = formatearDuracion(stats.parada.horasTotal);
@@ -3643,6 +3648,13 @@ function renderHistorialDashboard(reportes) {
     .sort((a, b) => (b.fechaHora?.toMillis?.() || 0) - (a.fechaHora?.toMillis?.() || 0))
     .slice(0, 30);
 
+  const elHistResumen = document.getElementById('dashHistorialResumen');
+  if (elHistResumen) {
+    elHistResumen.textContent = reportes.length
+      ? (reportes.length > ordenados.length ? `${ordenados.length} recientes de ${reportes.length}` : `${reportes.length} reporte(s)`)
+      : '';
+  }
+
   if (!ordenados.length) {
     tbody.innerHTML = '<tr><td colspan="6" class="lista-vacia">Todavía no hay reportes registrados.</td></tr>';
     return;
@@ -3661,6 +3673,136 @@ function renderHistorialDashboard(reportes) {
       `<td>${d.paradaProduccion ? '<span class="estado vencida">Sí</span>' : 'No'}</td>`;
     tr.addEventListener('click', () => abrirModalDetalleReporte(d));
     tbody.appendChild(tr);
+  });
+}
+
+/* ---------- Repuestos utilizados por equipo (dashboard) ---------- */
+
+let reportesDashboardActual = [];
+const equiposRepuestosAbiertos = new Set(); // equipos que la persona dejó desplegados
+
+const REPUESTOS_SIN_USO = new Set(['ninguno', 'ninguna', 'ningun', 'no', 'n/a', 'na', 'no aplica', 'sin repuestos', '-', '.']);
+
+// ¿El campo "Repuestos utilizados" trae algo real (no vacío ni "Ninguno")?
+function textoRepuestosValido(texto) {
+  const t = String(texto || '').trim();
+  return !!t && !REPUESTOS_SIN_USO.has(normalizarClave(t));
+}
+
+// Agrupa por equipo los reportes que registraron repuestos (filtrando por
+// periodo y, opcionalmente, por un término de búsqueda sobre el equipo o el
+// texto de repuestos). Devuelve los equipos con su último uso más reciente primero.
+function agruparRepuestosPorEquipo(reportes, periodo, termino) {
+  const hoy = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.HOY) ? APP_CONFIG.HOY : new Date();
+  const anioActual = hoy.getFullYear();
+  const mesActual = hoy.getMonth() + 1;
+
+  const mapa = new Map();
+  reportes.forEach(d => {
+    if (!d.fecha || !textoRepuestosValido(d.repuestos)) return;
+    const [anio, mes] = d.fecha.split('-').map(Number);
+    if (periodo === 'anio' && anio !== anioActual) return;
+    if (periodo === 'mes' && !(anio === anioActual && mes === mesActual)) return;
+    if (termino && !normalizarClave(`${d.equipoNombre || ''} ${d.equipoCodigo || ''} ${d.repuestos}`).includes(termino)) return;
+
+    const clave = d.equipoCodigo || d.equipoNombre || '—';
+    if (!mapa.has(clave)) {
+      mapa.set(clave, { clave, nombre: d.equipoNombre || clave, codigo: d.equipoCodigo || '', reportes: [] });
+    }
+    mapa.get(clave).reportes.push(d);
+  });
+
+  const grupos = [...mapa.values()];
+  grupos.forEach(g => {
+    g.reportes.sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '') ||
+      ((b.fechaHora?.toMillis?.() || 0) - (a.fechaHora?.toMillis?.() || 0)));
+    g.ultimaFecha = g.reportes[0].fecha;
+  });
+  return grupos.sort((a, b) => b.ultimaFecha.localeCompare(a.ultimaFecha) || a.nombre.localeCompare(b.nombre, 'es'));
+}
+
+function renderRepuestosDashboard() {
+  const cont = document.getElementById('dashListaRepuestos');
+  if (!cont) return;
+  const selPeriodo = document.getElementById('dashRepuestosPeriodo');
+  const inputBuscar = document.getElementById('dashRepuestosBuscar');
+  const resumen = document.getElementById('dashRepuestosResumen');
+
+  const periodo = selPeriodo ? selPeriodo.value : 'todo';
+  const termino = normalizarClave(inputBuscar ? inputBuscar.value : '');
+
+  const todos = agruparRepuestosPorEquipo(reportesDashboardActual, periodo, '');
+  const grupos = termino ? agruparRepuestosPorEquipo(reportesDashboardActual, periodo, termino) : todos;
+
+  if (resumen) {
+    const totalReportes = todos.reduce((acc, g) => acc + g.reportes.length, 0);
+    resumen.textContent = todos.length ? `${todos.length} equipo(s) · ${totalReportes} reporte(s)` : '';
+  }
+
+  cont.innerHTML = '';
+  if (!grupos.length) {
+    const vacio = document.createElement('p');
+    vacio.className = 'lista-vacia';
+    vacio.textContent = termino
+      ? 'Ningún equipo ni repuesto coincide con la búsqueda.'
+      : 'No hay repuestos registrados en este periodo.';
+    cont.appendChild(vacio);
+    return;
+  }
+
+  grupos.forEach(g => {
+    const det = document.createElement('details');
+    det.className = 'equipo-repuestos';
+    det.open = equiposRepuestosAbiertos.has(g.clave);
+    det.addEventListener('toggle', () => {
+      if (det.open) equiposRepuestosAbiertos.add(g.clave);
+      else equiposRepuestosAbiertos.delete(g.clave);
+    });
+
+    const sum = document.createElement('summary');
+    sum.innerHTML =
+      `<span class="equipo-repuestos-nombre">${escaparHtml(g.nombre)}` +
+      `${g.codigo ? ` <small>(${escaparHtml(g.codigo)})</small>` : ''}</span>` +
+      `<span class="resumen-colapsable">${g.reportes.length} reporte(s) · último: ${escaparHtml(formatearFechaLarga(g.ultimaFecha))}</span>`;
+    det.appendChild(sum);
+
+    const ul = document.createElement('ul');
+    ul.className = 'equipo-repuestos-detalle';
+    g.reportes.forEach(d => {
+      const li = document.createElement('li');
+
+      const cab = document.createElement('div');
+      cab.className = 'repuesto-cabecera';
+      cab.innerHTML =
+        `<span class="repuesto-fecha">${escaparHtml(formatearFechaLarga(d.fecha))}` +
+        `${d.tipo ? ` <span>· ${escaparHtml(d.tipo)}</span>` : ''}</span>`;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'repuesto-ver';
+      btn.textContent = 'Ver reporte';
+      btn.addEventListener('click', () => abrirModalDetalleReporte(d));
+      cab.appendChild(btn);
+
+      const texto = document.createElement('p');
+      texto.className = 'repuesto-texto';
+      texto.textContent = d.repuestos.trim(); // tal como se escribió en el reporte
+
+      li.append(cab, texto);
+      ul.appendChild(li);
+    });
+    det.appendChild(ul);
+    cont.appendChild(det);
+  });
+}
+
+// Recuerda qué paneles colapsables dejó abiertos la persona.
+function initPanelesColapsables() {
+  document.querySelectorAll('#dashboard details[data-persist]').forEach(det => {
+    const clave = `dashPanel:${det.dataset.persist}`;
+    try { if (localStorage.getItem(clave) === '1') det.open = true; } catch (e) { /* sin almacenamiento */ }
+    det.addEventListener('toggle', () => {
+      try { localStorage.setItem(clave, det.open ? '1' : '0'); } catch (e) { /* sin almacenamiento */ }
+    });
   });
 }
 
@@ -3711,6 +3853,8 @@ function initEscuchaReportesDashboard() {
       renderTablaEficienciaEquipo(statsDashboardActual);
       renderTablaEficienciaArea(statsDashboardActual);
       renderHistorialDashboard(reportes);
+      reportesDashboardActual = reportes;
+      renderRepuestosDashboard();
     },
     err => {
       console.error('Error al cargar los datos del dashboard:', err);
@@ -3751,6 +3895,13 @@ function initDashboard() {
   // queda funcionando automáticamente: initPestanas() (llamada antes,
   // en la inicialización general) maneja cualquier [role="tablist"]
   // con botones .tab, incluida esta.
+
+  initPanelesColapsables();
+
+  const selPeriodoRep = document.getElementById('dashRepuestosPeriodo');
+  const inputBuscarRep = document.getElementById('dashRepuestosBuscar');
+  if (selPeriodoRep) selPeriodoRep.addEventListener('change', renderRepuestosDashboard);
+  if (inputBuscarRep) inputBuscarRep.addEventListener('input', renderRepuestosDashboard);
 
   initEscuchaReportesDashboard();
 }
