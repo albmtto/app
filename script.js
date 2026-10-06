@@ -3412,10 +3412,12 @@ async function verPdfReporte(reporte) {
      sola vez y arma todos los totales/agrupaciones que necesita
      el dashboard (por tipo, por equipo, por área, paradas de
      producción).
-   - Las tarjetas de "Mantenimientos ejecutados" e "Instalaciones
-     y bajas" son clicables (atributo data-tipo): al hacer clic
-     abren el modal de desglose con una gráfica de barras (SVG,
-     sin librerías externas) y una tabla por equipo.
+   - Cada panel (todos colapsados al inicio) muestra una gráfica de
+     barras mensual (SVG, sin librerías externas): eje X = meses del
+     año elegido, eje Y = el dato. Los tipos de la leyenda de
+     "Mantenimientos" e "Instalaciones y bajas" son clicables
+     (atributo data-desglose) y abren el modal de desglose con una
+     gráfica por equipo y una tabla.
    - "Eficiencia desglosada" muestra, para los correctivos, el
      tiempo acumulado por equipo o por área (pestañas).
    - "Historial de reportes" lista los últimos reportes y abre el
@@ -3434,6 +3436,10 @@ const COLOR_POR_TIPO_DASHBOARD = {
 };
 
 let statsDashboardActual = null;
+let anioDashboard = null; // año que muestran las gráficas mensuales
+
+const MESES_CORTOS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+const MESES_LARGOS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 let modalDesglose, desgloseTitulo, desgloseResumen, desgloseGrafica, desgloseTablaBody;
 
 // Recorre todos los reportes una sola vez y calcula todo lo que
@@ -3552,7 +3558,209 @@ function construirGraficaBarras(filas, color) {
   return `<svg viewBox="0 0 400 ${alturaTotal}" width="100%" height="${alturaTotal}" role="img" aria-label="Gráfica de barras por equipo" style="color:var(--text)">${contenido}</svg>`;
 }
 
-// Actualiza las tarjetas resumidas y los tres indicadores de eficiencia.
+/* ---------- Gráficas de barras mensuales (SVG puro) ---------- */
+
+function fechaHoyDashboard() {
+  return (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.HOY) ? APP_CONFIG.HOY : new Date();
+}
+
+function formatearNumeroGrafica(n) {
+  const r = Math.round(n * 100) / 100;
+  return Number.isInteger(r) ? String(r) : r.toLocaleString('es-CO', { maximumFractionDigits: 1 });
+}
+
+// Suma, mes a mes (12 posiciones), el valor de los reportes del año que cumplan el filtro.
+function valoresPorMes(reportes, anio, filtro, valor) {
+  const resultado = new Array(12).fill(0);
+  reportes.forEach(d => {
+    if (!d.fecha) return;
+    const [a, m] = d.fecha.split('-').map(Number);
+    if (a !== anio || !m || !filtro(d)) return;
+    resultado[m - 1] += valor(d);
+  });
+  return resultado;
+}
+
+// Escala "bonita" del eje Y: hasta 5 divisiones con pasos 1, 2, 5, 10, 20, 50…
+function calcularEjeY(maximo, entero) {
+  const base = entero ? [1, 2, 5] : [0.5, 1, 2, 5];
+  let escala = 1;
+  for (let i = 0; i < 12; i++) {
+    for (const b of base) {
+      const paso = b * escala;
+      const divisiones = Math.max(Math.ceil(maximo / paso), 1);
+      if (divisiones <= 5) return { paso, tope: divisiones * paso };
+    }
+    escala *= 10;
+  }
+  return { paso: maximo, tope: maximo };
+}
+
+function trazoBarraRedondeada(x, base, ancho, alto) {
+  const r = Math.min(4, ancho / 2, alto);
+  return `M${x} ${base} V${base - alto + r} A${r} ${r} 0 0 1 ${x + r} ${base - alto} H${x + ancho - r} ` +
+         `A${r} ${r} 0 0 1 ${x + ancho} ${base - alto + r} V${base} Z`;
+}
+
+// series: [{ nombre, color, valores: [12 números] }]
+// opciones: { anio, entero (true = conteos), unidad (texto tras el valor en el tooltip) }
+function construirGraficaMensual(series, opciones) {
+  const { anio, entero = true, unidad = '' } = opciones;
+  const maximo = Math.max(0, ...series.flatMap(s => s.valores));
+  if (maximo <= 0) return `<p class="lista-vacia">No hay datos registrados en ${anio}.</p>`;
+
+  const W = 720, H = 300, mIzq = 46, mDer = 12, mSup = 22, mInf = 34;
+  const anchoPlot = W - mIzq - mDer;
+  const altoPlot = H - mSup - mInf;
+  const base = mSup + altoPlot;
+  const { paso, tope } = calcularEjeY(maximo, entero);
+  const yDe = v => base - (v / tope) * altoPlot;
+  const banda = anchoPlot / 12;
+  const n = series.length;
+  const anchoBarra = Math.min((banda * 0.74) / n, 34);
+  const anchoGrupo = anchoBarra * n;
+  const hoy = fechaHoyDashboard();
+  const mesHoy = hoy.getFullYear() === anio ? hoy.getMonth() : -1;
+
+  let svg = '';
+  if (mesHoy >= 0) {
+    svg += `<rect x="${mIzq + banda * mesHoy}" y="${mSup}" width="${banda}" height="${altoPlot}" rx="6" style="fill:var(--primary-soft)" opacity=".7"></rect>`;
+  }
+
+  // Cuadrícula y eje Y
+  const divisiones = Math.round(tope / paso);
+  for (let i = 0; i <= divisiones; i++) {
+    const v = Math.round(i * paso * 100) / 100;
+    const y = yDe(v);
+    svg +=
+      `<line x1="${mIzq}" x2="${W - mDer}" y1="${y}" y2="${y}" style="stroke:var(--border)" stroke-width="1"${i ? ' stroke-dasharray="3 4"' : ''}></line>` +
+      `<text x="${mIzq - 8}" y="${y + 4}" text-anchor="end" font-size="11" style="fill:var(--text-muted)">${formatearNumeroGrafica(v)}</text>`;
+  }
+
+  // Barras, etiquetas de valor y meses
+  const tamEtiqueta = n >= 3 ? 9 : 10;
+  for (let m = 0; m < 12; m++) {
+    const cx = mIzq + banda * m + banda / 2;
+    const x0 = cx - anchoGrupo / 2;
+    series.forEach((s, i) => {
+      const v = s.valores[m];
+      if (!(v > 0)) return;
+      const alto = Math.max((v / tope) * altoPlot, 2);
+      const ancho = anchoBarra - (n > 1 ? 2 : 0);
+      const x = x0 + i * anchoBarra + (n > 1 ? 1 : 0);
+      svg +=
+        `<path d="${trazoBarraRedondeada(x, base, ancho, alto)}" fill="${s.color}"></path>` +
+        `<text x="${x + ancho / 2}" y="${base - alto - 4}" text-anchor="middle" font-size="${tamEtiqueta}" font-weight="600" style="fill:var(--text)">${formatearNumeroGrafica(v)}</text>`;
+    });
+    const esHoy = m === mesHoy;
+    svg += `<text x="${cx}" y="${H - 12}" text-anchor="middle" font-size="12" font-weight="${esHoy ? 700 : 500}" style="fill:var(${esHoy ? '--text' : '--text-muted'})">${MESES_CORTOS[m]}</text>`;
+  }
+
+  // Zona sensible por mes: muestra el detalle de todas las series al pasar el cursor
+  for (let m = 0; m < 12; m++) {
+    const lineas = [`${MESES_LARGOS[m]} ${anio}`, ...series.map(s => `${s.nombre}: ${formatearNumeroGrafica(s.valores[m])}${unidad}`)];
+    svg += `<rect x="${mIzq + banda * m}" y="${mSup}" width="${banda}" height="${altoPlot}" style="fill:transparent"><title>${escaparHtml(lineas.join('\n'))}</title></rect>`;
+  }
+
+  const descripcion = `Gráfica de barras mensual de ${anio}. ` + series.map(s =>
+    `${s.nombre}: ` + s.valores.map((v, m) => `${MESES_CORTOS[m]} ${formatearNumeroGrafica(v)}`).join(', ')
+  ).join('. ');
+
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${escaparHtml(descripcion)}" style="color:var(--text)">${svg}</svg>`;
+}
+
+function construirLeyendaGrafica(series, opciones) {
+  const formato = opciones.formatoTotal || formatearNumeroGrafica;
+  return series.map(s => {
+    const total = s.valores.reduce((acc, v) => acc + v, 0);
+    const contenido = `<span class="punto" style="background:${s.color}"></span>${escaparHtml(s.nombre)} <b>${escaparHtml(formato(total))}</b>`;
+    return s.desglose
+      ? `<button type="button" class="leyenda-item" data-desglose="${escaparHtml(s.desglose)}" title="Ver desglose por equipo">${contenido}</button>`
+      : `<span class="leyenda-item">${contenido}</span>`;
+  }).join('');
+}
+
+// Dibuja una gráfica mensual + su leyenda y escribe el resumen en la cabecera del panel.
+function pintarGraficaMensual(ids, series, opciones) {
+  const contenedor = document.getElementById(ids.grafica);
+  if (!contenedor) return;
+  contenedor.innerHTML = construirGraficaMensual(series, opciones);
+
+  const leyenda = document.getElementById(ids.leyenda);
+  if (leyenda) leyenda.innerHTML = construirLeyendaGrafica(series, opciones);
+
+  const resumen = document.getElementById(ids.resumen);
+  if (resumen) {
+    const total = series.reduce((acc, s) => acc + s.valores.reduce((a, v) => a + v, 0), 0);
+    const formato = opciones.formatoTotal || formatearNumeroGrafica;
+    resumen.textContent = total > 0 ? `${formato(total)} en ${opciones.anio}` : `Sin datos en ${opciones.anio}`;
+  }
+}
+
+function renderGraficasDashboard() {
+  const reportes = reportesDashboardActual;
+  const anio = anioDashboard;
+  const horasDe = d => calcularDuracionHoras(d.horaInicio, d.horaFin) || 0;
+  const uno = () => 1;
+  const serieTipo = tipo => ({
+    nombre: tipo,
+    color: COLOR_POR_TIPO_DASHBOARD[tipo],
+    valores: valoresPorMes(reportes, anio, d => d.tipo === tipo, uno),
+    desglose: tipo
+  });
+
+  pintarGraficaMensual(
+    { grafica: 'dashGraficaMantenimientos', leyenda: 'dashLeyendaMantenimientos', resumen: 'dashMantenimientosResumen' },
+    ['Preventivo', 'Correctivo', 'Locativo'].map(serieTipo),
+    { anio, entero: true }
+  );
+
+  pintarGraficaMensual(
+    { grafica: 'dashGraficaInstalaciones', leyenda: 'dashLeyendaInstalaciones', resumen: 'dashInstalacionesResumen' },
+    ['Instalación', 'Desinstalación', 'Dada de baja'].map(serieTipo),
+    { anio, entero: true }
+  );
+
+  pintarGraficaMensual(
+    { grafica: 'dashGraficaEficiencia', leyenda: 'dashLeyendaEficiencia', resumen: 'dashEficienciaResumen' },
+    [{ nombre: 'Horas en correctivos', color: COLOR_POR_TIPO_DASHBOARD['Correctivo'],
+       valores: valoresPorMes(reportes, anio, d => d.tipo === 'Correctivo', horasDe) }],
+    { anio, entero: false, unidad: ' h', formatoTotal: formatearDuracion }
+  );
+
+  pintarGraficaMensual(
+    { grafica: 'dashGraficaParada', leyenda: 'dashLeyendaParada', resumen: 'dashParadaResumen' },
+    [{ nombre: 'Producción detenida', color: '#c2410c',
+       valores: valoresPorMes(reportes, anio, d => d.paradaProduccion === true, horasDe) }],
+    { anio, entero: false, unidad: ' h', formatoTotal: formatearDuracion }
+  );
+
+  // El resumen de la cabecera de Repuestos lo escribe renderRepuestosDashboard (según su propio filtro).
+  pintarGraficaMensual(
+    { grafica: 'dashGraficaRepuestos', leyenda: 'dashLeyendaRepuestosGraf', resumen: null },
+    [{ nombre: 'Reportes con repuestos', color: '#1d4ed8',
+       valores: valoresPorMes(reportes, anio, d => textoRepuestosValido(d.repuestos), uno) }],
+    { anio, entero: true }
+  );
+}
+
+// Llena el selector de año con los años que tienen reportes (más el actual).
+function actualizarSelectorAnioDashboard() {
+  const sel = document.getElementById('dashAnio');
+  if (!sel) return;
+  const anioHoy = fechaHoyDashboard().getFullYear();
+  const anios = new Set([anioHoy]);
+  reportesDashboardActual.forEach(d => {
+    const a = parseInt(String(d.fecha || '').slice(0, 4), 10);
+    if (a) anios.add(a);
+  });
+  if (!anioDashboard) anioDashboard = anioHoy;
+  anios.add(anioDashboard);
+  sel.innerHTML = [...anios].sort((a, b) => b - a).map(a => `<option value="${a}">${a}</option>`).join('');
+  sel.value = String(anioDashboard);
+}
+
+// Actualiza los indicadores de eficiencia y de producción detenida.
 function renderResumenDashboard(stats) {
   const idsPorTipo = {
     'Preventivo': ['dashPreventivoAnio', 'dashPreventivoMes'],
@@ -3596,11 +3804,6 @@ function renderResumenDashboard(stats) {
   } else {
     if (elFalla) elFalla.textContent = 'Sin datos';
     if (elFallaDet) elFallaDet.textContent = 'Todavía no hay reportes correctivos registrados.';
-  }
-
-  const elEfiResumen = document.getElementById('dashEficienciaResumen');
-  if (elEfiResumen) {
-    elEfiResumen.textContent = stats.correctivo.cantidad ? `${stats.correctivo.cantidad} correctivo(s)` : '';
   }
 
   const elParada = document.getElementById('dashParadaProduccion');
@@ -3854,6 +4057,8 @@ function initEscuchaReportesDashboard() {
       renderTablaEficienciaArea(statsDashboardActual);
       renderHistorialDashboard(reportes);
       reportesDashboardActual = reportes;
+      actualizarSelectorAnioDashboard();
+      renderGraficasDashboard();
       renderRepuestosDashboard();
     },
     err => {
@@ -3897,6 +4102,31 @@ function initDashboard() {
   // con botones .tab, incluida esta.
 
   initPanelesColapsables();
+
+  anioDashboard = fechaHoyDashboard().getFullYear();
+  actualizarSelectorAnioDashboard();
+  const selAnio = document.getElementById('dashAnio');
+  if (selAnio) {
+    selAnio.addEventListener('change', () => {
+      anioDashboard = parseInt(selAnio.value, 10) || fechaHoyDashboard().getFullYear();
+      renderGraficasDashboard();
+    });
+  }
+
+  // Leyendas clicables: abren el desglose por equipo del tipo elegido.
+  const seccionDash = document.getElementById('dashboard');
+  if (seccionDash) {
+    seccionDash.addEventListener('click', e => {
+      const boton = e.target.closest('[data-desglose]');
+      if (boton) abrirModalDesglose(boton.dataset.desglose);
+    });
+  }
+
+  const paneles = () => document.querySelectorAll('#dashboard > details.panel-colapsable');
+  const btnExpandir = document.getElementById('dashExpandirTodo');
+  const btnContraer = document.getElementById('dashContraerTodo');
+  if (btnExpandir) btnExpandir.addEventListener('click', () => paneles().forEach(p => { p.open = true; }));
+  if (btnContraer) btnContraer.addEventListener('click', () => paneles().forEach(p => { p.open = false; }));
 
   const selPeriodoRep = document.getElementById('dashRepuestosPeriodo');
   const inputBuscarRep = document.getElementById('dashRepuestosBuscar');
