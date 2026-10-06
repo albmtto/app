@@ -61,6 +61,23 @@
   .repuesto-cabecera{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--s2)}
   .repuesto-fecha{font-size:var(--fs-sm);font-weight:600}
   .repuesto-fecha span{font-weight:500;color:var(--text-muted)}
+  /* ===== Dashboard en gráficas mensuales ===== */
+  .dash-barra{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:var(--s4);margin-bottom:var(--s4)}
+  .dash-barra .campo{min-width:160px}
+  .dash-acciones{display:flex;flex-wrap:wrap;gap:var(--s2)}
+  .grafica-leyenda{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s3);margin-bottom:var(--s3)}
+  .leyenda-item{
+    display:inline-flex;align-items:center;gap:var(--s2);padding:5px 12px;border:1px solid var(--border);
+    border-radius:99px;background:var(--surface);color:var(--text);font:inherit;font-size:var(--fs-sm);font-weight:500;
+  }
+  .leyenda-item b{font-weight:700}
+  .leyenda-item .punto{width:10px;height:10px;border-radius:3px;flex:none}
+  button.leyenda-item{cursor:pointer;transition:background .15s ease,border-color .15s ease}
+  button.leyenda-item:hover{background:var(--surface-alt);border-color:var(--primary)}
+  .grafica-mensual{overflow-x:auto;margin-bottom:var(--s4)}
+  .grafica-mensual svg{display:block;width:100%;min-width:560px;height:auto}
+  .grafica-mensual svg text{font-family:inherit}
+  .panel .cuerpo > .subtitulo{margin-top:var(--s5)}
 </style>
 </head>
 <body>
@@ -182,8 +199,25 @@
     <section id="dashboard" aria-labelledby="h-dash">
       <h2 id="h-dash" class="sr-only">Dashboard</h2>
 
-      <p class="subtitulo">Órdenes de trabajo</p>
-      <div class="tarjetas">
+      <div class="dash-barra">
+        <div class="campo">
+          <label for="dashAnio">Año de las gráficas</label>
+          <select id="dashAnio"></select>
+        </div>
+        <div class="dash-acciones">
+          <button type="button" class="btn secundario btn-chico" id="dashExpandirTodo">Expandir todo</button>
+          <button type="button" class="btn secundario btn-chico" id="dashContraerTodo">Contraer todo</button>
+        </div>
+      </div>
+
+      <details class="panel panel-colapsable" data-persist="ordenes">
+        <summary class="cabecera">
+          <h2 style="border:none;background:none;padding:0">Órdenes de trabajo</h2>
+          <span class="resumen-colapsable" id="dashOrdenesResumen"></span>
+        </summary>
+        <div class="cuerpo">
+          <p class="ayuda">Esta sección se llenará cuando esté conectada la lógica de órdenes de trabajo.</p>
+          <div class="tarjetas">
         <div class="tarjeta">
           <span class="ic" style="background:var(--primary-soft)" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></span>
           <div><h3>Total órdenes</h3><p>0</p><small>Histórico completo</small></div>
@@ -197,41 +231,41 @@
           <div><h3>Órdenes pendientes</h3><p>0</p><small>-</small></div>
         </div>
       </div>
+        </div>
+      </details>
 
-      <p class="subtitulo">Mantenimientos ejecutados</p>
-      <div class="tarjetas">
-        <div class="tarjeta" data-tipo="Preventivo">
-          <span class="ic" style="background:var(--info-soft)" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1e40af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
-          <div><h3>Preventivos ejecutados</h3><p id="dashPreventivoAnio">0 <small>año</small></p><small id="dashPreventivoMes">0 este mes</small></div>
+      <details class="panel panel-colapsable" data-persist="mantenimientos">
+        <summary class="cabecera">
+          <h2 style="border:none;background:none;padding:0">Mantenimientos ejecutados</h2>
+          <span class="resumen-colapsable" id="dashMantenimientosResumen"></span>
+        </summary>
+        <div class="cuerpo">
+          <p class="ayuda">Preventivos, correctivos y locativos realizados cada mes. Pasa el cursor sobre un mes para ver el detalle, o haz clic en un tipo de la leyenda para ver su desglose por equipo.</p>
+          <div class="grafica-leyenda" id="dashLeyendaMantenimientos"></div>
+          <div class="grafica-mensual" id="dashGraficaMantenimientos"><p class="lista-vacia">Cargando…</p></div>
         </div>
-        <div class="tarjeta" data-tipo="Correctivo">
-          <span class="ic" style="background:var(--danger-soft)" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b91c1c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg></span>
-          <div><h3>Correctivos ejecutados</h3><p id="dashCorrectivoAnio">0 <small>año</small></p><small id="dashCorrectivoMes">0 este mes</small></div>
-        </div>
-        <div class="tarjeta" data-tipo="Locativo">
-          <span class="ic" style="background:var(--violet-soft)" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/></svg></span>
-          <div><h3>Locativos ejecutados</h3><p id="dashLocativoAnio">0 <small>año</small></p><small id="dashLocativoMes">0 este mes</small></div>
-        </div>
-      </div>
+      </details>
 
-      <p class="subtitulo">Instalaciones</p>
-      <div class="tarjetas">
-        <div class="tarjeta" data-tipo="Instalación">
-          <span class="ic" style="background:var(--success-soft)" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M5 10l7-7 7 7"/><path d="M3 21h18"/></svg></span>
-          <div><h3>Instalaciones realizadas</h3><p id="dashInstalacionAnio">0 <small>año</small></p><small id="dashInstalacionMes">0 este mes</small></div>
+      <details class="panel panel-colapsable" data-persist="instalaciones">
+        <summary class="cabecera">
+          <h2 style="border:none;background:none;padding:0">Instalaciones y bajas</h2>
+          <span class="resumen-colapsable" id="dashInstalacionesResumen"></span>
+        </summary>
+        <div class="cuerpo">
+          <p class="ayuda">Instalaciones, desinstalaciones y equipos dados de baja cada mes. Haz clic en un tipo de la leyenda para ver su desglose por equipo.</p>
+          <div class="grafica-leyenda" id="dashLeyendaInstalaciones"></div>
+          <div class="grafica-mensual" id="dashGraficaInstalaciones"><p class="lista-vacia">Cargando…</p></div>
         </div>
-        <div class="tarjeta" data-tipo="Desinstalación">
-          <span class="ic" style="background:var(--warning-soft)" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a16207" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V3M5 14l7 7 7-7"/><path d="M3 3h18"/></svg></span>
-          <div><h3>Desinstalaciones realizadas</h3><p id="dashDesinstalacionAnio">0 <small>año</small></p><small id="dashDesinstalacionMes">0 este mes</small></div>
-        </div>
-        <div class="tarjeta" data-tipo="Dada de baja">
-          <span class="ic" style="background:var(--danger-soft)" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b91c1c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg></span>
-          <div><h3>Equipos dados de baja</h3><p id="dashBajaAnio">0 <small>año</small></p><small id="dashBajaMes">0 este mes</small></div>
-        </div>
-      </div>
+      </details>
 
-      <p class="subtitulo">Indicadores de eficiencia</p>
-      <div class="destacados">
+      <details class="panel panel-colapsable" data-persist="eficiencia">
+        <summary class="cabecera">
+          <h2 style="border:none;background:none;padding:0">Eficiencia de mantenimientos correctivos</h2>
+          <span class="resumen-colapsable" id="dashEficienciaResumen"></span>
+        </summary>
+        <div class="cuerpo">
+          <p class="ayuda">Los indicadores corresponden a todo el histórico. La gráfica muestra las horas invertidas en correctivos mes a mes del año seleccionado.</p>
+          <div class="destacados">
         <div class="destacado">
           <h3>Eficiencia de mantenimientos correctivos</h3>
           <p class="grande" id="dashEficienciaCorrectivo">— <span style="font-size:var(--fs-sm);font-weight:500;color:var(--text-muted)">de promedio</span></p>
@@ -242,21 +276,10 @@
           <p class="grande" id="dashEquipoMasFalla">Sin datos</p>
           <p class="detalle" id="dashEquipoMasFallaDetalle">Todavía no hay reportes correctivos registrados.</p>
         </div>
-        <div class="destacado" style="border-left-color:var(--danger)">
-          <h3>Producción detenida por mantenimiento</h3>
-          <p class="grande" id="dashParadaProduccion">0 horas</p>
-          <p class="detalle" id="dashParadaProduccionDetalle">Tiempo acumulado en que la producción se detuvo por intervenciones de mantenimiento.</p>
-        </div>
-      </div>
-
-      <details class="panel panel-colapsable" data-persist="eficiencia">
-        <summary class="cabecera">
-          <h2 style="border:none;background:none;padding:0">Eficiencia desglosada · mantenimientos correctivos</h2>
-          <span class="resumen-colapsable" id="dashEficienciaResumen"></span>
-        </summary>
-        <div class="cuerpo">
-          <p class="ayuda">Tiempo total y promedio invertido reparando cada equipo o área</p>
-
+          </div>
+          <div class="grafica-leyenda" id="dashLeyendaEficiencia"></div>
+          <div class="grafica-mensual" id="dashGraficaEficiencia"><p class="lista-vacia">Cargando…</p></div>
+          <p class="subtitulo">Desglose por equipo o área</p>
           <div role="tablist" class="tabs" aria-label="Agrupar eficiencia por">
             <button type="button" class="tab" id="tabEficienciaEquipo" role="tab" aria-selected="true" aria-controls="panelEficienciaEquipo">Por equipo</button>
             <button type="button" class="tab" id="tabEficienciaArea" role="tab" aria-selected="false" aria-controls="panelEficienciaArea" tabindex="-1">Por área</button>
@@ -283,13 +306,35 @@
         </div>
       </details>
 
+      <details class="panel panel-colapsable" data-persist="parada">
+        <summary class="cabecera">
+          <h2 style="border:none;background:none;padding:0">Producción detenida por mantenimiento</h2>
+          <span class="resumen-colapsable" id="dashParadaResumen"></span>
+        </summary>
+        <div class="cuerpo">
+          <p class="ayuda">Horas en que la producción estuvo detenida por intervenciones de mantenimiento, mes a mes del año seleccionado.</p>
+          <div class="destacados">
+        <div class="destacado" style="border-left-color:var(--danger)">
+          <h3>Producción detenida por mantenimiento</h3>
+          <p class="grande" id="dashParadaProduccion">0 horas</p>
+          <p class="detalle" id="dashParadaProduccionDetalle">Tiempo acumulado en que la producción se detuvo por intervenciones de mantenimiento.</p>
+        </div>
+          </div>
+          <div class="grafica-leyenda" id="dashLeyendaParada"></div>
+          <div class="grafica-mensual" id="dashGraficaParada"><p class="lista-vacia">Cargando…</p></div>
+        </div>
+      </details>
+
       <details class="panel panel-colapsable" data-persist="repuestos">
         <summary class="cabecera">
           <h2 style="border:none;background:none;padding:0">Repuestos utilizados</h2>
           <span class="resumen-colapsable" id="dashRepuestosResumen"></span>
         </summary>
         <div class="cuerpo">
-          <p class="ayuda">Equipos que han usado repuestos. Haz clic en un equipo para ver lo que se registró en cada reporte.</p>
+          <p class="ayuda">La gráfica cuenta los reportes que registraron repuestos cada mes del año seleccionado. Abajo, haz clic en un equipo para ver lo que se registró en cada reporte.</p>
+          <div class="grafica-leyenda" id="dashLeyendaRepuestosGraf"></div>
+          <div class="grafica-mensual" id="dashGraficaRepuestos"><p class="lista-vacia">Cargando…</p></div>
+          <p class="subtitulo">Repuestos por equipo</p>
           <div class="filtros-fila">
             <div class="campo">
               <label for="dashRepuestosPeriodo">Periodo</label>
